@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
@@ -234,24 +233,6 @@ public class Deployer {
 		this.s3 = s3;
 	}
 	
-	private static String VERSION = "UNKNOWN";
-
-	private static String getVersion() {
-		if ("UNKNOWN".equals(VERSION)) {
-			try {
-				Properties p = new Properties();
-				
-				p.load(Deployer.class.getResourceAsStream("version.properties"));
-				
-				VERSION = p.getProperty("awseb-deployer-plugin.version");
-				
-			} catch (Exception exc) {
-				VERSION = "UNKNOWN";
-			}
-		}
-
-		return VERSION;
-	}
 
 	void log(String mask, Object... args) {
 		logger.println(String.format(mask, args));
