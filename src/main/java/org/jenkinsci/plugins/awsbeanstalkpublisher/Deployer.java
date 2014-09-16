@@ -83,7 +83,7 @@ public class Deployer {
 	public void perform() throws Exception {
 		initAWS();
 		
-		log("Running Version %s", getVersion());
+		log("Running AWS Elastic Beanstalk deploy for %s, on %s", applicationName, environmentNames);
 
 		localArchive = getLocalFileObject(rootFileObject);
 
@@ -216,7 +216,7 @@ public class Deployer {
 		Region region = Region.getRegion(context.getAwsRegion());
 		ClientConfiguration clientConfig = new ClientConfiguration();
 
-		clientConfig.setUserAgent("jenkinsci CloudButler/" + getVersion());
+		clientConfig.setUserAgent(ClientConfiguration.DEFAULT_USER_AGENT);
 
 		s3 = region.createClient(AmazonS3Client.class, credentials,
 				clientConfig);
@@ -246,7 +246,7 @@ public class Deployer {
 				VERSION = p.getProperty("awseb-deployer-plugin.version");
 				
 			} catch (Exception exc) {
-				throw new RuntimeException(exc);
+				VERSION = "UNKNOWN";
 			}
 		}
 
