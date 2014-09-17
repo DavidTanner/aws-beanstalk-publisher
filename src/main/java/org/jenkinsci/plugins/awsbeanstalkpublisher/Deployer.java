@@ -33,6 +33,10 @@ import com.amazonaws.services.elasticbeanstalk.model.S3Location;
 import com.amazonaws.services.elasticbeanstalk.model.UpdateEnvironmentRequest;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.annotations.VisibleForTesting;
 
 public class Deployer {
@@ -195,15 +199,40 @@ public class Deployer {
 		boolean uploadFile = true;
 	
 		try {
-			s3.getObjectMetadata(bucketName, objectKey);
-		} catch (Exception e) {
-			uploadFile = context.isOverwriteExistingFile();
+			ObjectMetadata meta = s3.getObjectMetadata(bucketName, objectKey);
+		} catch (AmazonS3Exception s3e) {
+			if (s3e.getStatusCode() == 404) {
+		        // i.e. 404: NoSuchKey - The specified key does not exist
+				uploadFile = context.isOverwriteExistingFile();
+			} else {
+				throw s3e;
+			}
 		}
 		
 		if (uploadFile) {
-			s3.putObject(bucketName, objectKey, localArchive);
+			uploadFile(bucketName, objectKey, localArchive);
 		}
 		
+	}
+	
+	private void uploadFile(String bucketName, String objectKey, File file) {
+		// Each instance of TransferManager maintains its own thread pool
+		// where transfers are processed, so share an instance when possible
+		TransferManager tx = new TransferManager(context.getCredentials().getAwsCredentials());
+
+		// The upload and download methods return immediately, while
+		// TransferManager processes the transfer in the background thread pool
+		Upload upload = tx.upload(bucketName, objectKey, file);
+
+		// While the transfer is processing, you can work with the transfer object
+		while (upload.isDone() == false) {
+			logger.println(upload.getProgress().getPercentTransferred() + "%");
+			try {
+				Thread.sleep(500);
+			} catch (InterruptedException e) {
+				
+			}
+		}
 	}
 
 	private void initAWS() {

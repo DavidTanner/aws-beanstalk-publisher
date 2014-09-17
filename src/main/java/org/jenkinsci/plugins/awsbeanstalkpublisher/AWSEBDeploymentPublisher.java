@@ -132,7 +132,7 @@ public class AWSEBDeploymentPublisher extends Recorder implements AWSEBDeploymen
 
 	@Override
 	public boolean isOverwriteExistingFile() {
-		return (overwriteExistingFile != null ? true : overwriteExistingFile);
+		return (overwriteExistingFile == null ? false : overwriteExistingFile);
 	}
 
 	
