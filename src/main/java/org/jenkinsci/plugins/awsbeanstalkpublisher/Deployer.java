@@ -20,8 +20,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.ProgressEventType;
+import com.amazonaws.event.ProgressListener;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalkClient;
@@ -222,16 +227,32 @@ public class Deployer {
 
 		// The upload and download methods return immediately, while
 		// TransferManager processes the transfer in the background thread pool
-		Upload upload = tx.upload(bucketName, objectKey, file);
+		final Upload upload = tx.upload(bucketName, objectKey, file);
 
-		// While the transfer is processing, you can work with the transfer object
-		while (upload.isDone() == false) {
-			logger.println(upload.getProgress().getPercentTransferred() + "%");
-			try {
-				Thread.sleep(500);
-			} catch (InterruptedException e) {
-				
-			}
+		// You can set a progress listener directly on a transfer, or you can pass one into
+		// the upload object to have it attached to the transfer as soon as it starts
+		upload.addProgressListener(new ProgressListener() {
+		    // This method is called periodically as your transfer progresses
+		    public void progressChanged(ProgressEvent progressEvent) {
+		        logger.println(upload.getProgress().getPercentTransferred() + "%");
+		 
+		        if (progressEvent.getEventType() == ProgressEventType.TRANSFER_COMPLETED_EVENT) {
+		            logger.println("Upload complete!!!");
+		        }
+		    }
+		});
+		
+		// waitForCompletion blocks the current thread until the transfer completes
+		// and will throw an AmazonClientException or AmazonServiceException if
+		// anything went wrong.
+		try {
+			upload.waitForCompletion();
+		} catch (AmazonServiceException e) {
+			e.printStackTrace(logger);
+		} catch (AmazonClientException e) {
+			e.printStackTrace(logger);
+		} catch (InterruptedException e) {
+			e.printStackTrace(logger);
 		}
 	}
 
