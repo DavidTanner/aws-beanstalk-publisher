@@ -3,7 +3,7 @@ package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 
 import hudson.Extension;
 import hudson.Launcher;
@@ -184,6 +184,8 @@ public class AWSEBDeploymentPublisher extends Recorder implements AWSEBDeploymen
      */
     @Extension // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
+    	
+    	private Set<AWSEBCredentials> credentials;
 
         @SuppressWarnings("rawtypes")
 		public boolean isApplicable(Class<? extends AbstractProject> aClass) {
@@ -200,13 +202,23 @@ public class AWSEBDeploymentPublisher extends Recorder implements AWSEBDeploymen
         
         public DescriptorImpl() {
             load();
+            if (credentials != null) {
+            	AWSEBCredentials.configureCredentials(credentials);
+            } else if (AWSEBCredentials.getCredentials() != null) {
+            	credentials = AWSEBCredentials.getCredentials();
+            }
         }
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
             AWSEBCredentials.configureCredentials(req.bindParametersToList(AWSEBCredentials.class, "credential."));
+            credentials = AWSEBCredentials.getCredentials();
             save();
-            return true;
+            return super.configure(req, json);
+        }
+        
+        public Set<AWSEBCredentials> getCredentials() {
+        	return credentials;
         }
         
         public ListBoxModel doFillCredentialsItems() {

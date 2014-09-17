@@ -1,6 +1,9 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -10,7 +13,6 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.internal.StaticCredentialsProvider;
 
 import hudson.model.ModelObject;
-import hudson.util.CopyOnWriteList;
 
 public class AWSEBCredentials implements ModelObject {
 
@@ -18,7 +20,7 @@ public class AWSEBCredentials implements ModelObject {
     private final String awsAccessKeyId;
     private final String awsSecretSharedKey;
     
-    private final static CopyOnWriteList<AWSEBCredentials> credentials = new CopyOnWriteList<AWSEBCredentials>();
+    private final static Set<AWSEBCredentials> credentials = new HashSet<AWSEBCredentials>();
 
     public String getName() {
         return name;
@@ -57,24 +59,26 @@ public class AWSEBCredentials implements ModelObject {
 		return credentials;
 	}
 	
-	public static void configureCredentials(List<AWSEBCredentials> toAdd) {
-		credentials.replaceBy(toAdd);
+	public static void configureCredentials(Collection<AWSEBCredentials> toAdd) {
+		credentials.addAll(toAdd);
 	}
 	
-    public static AWSEBCredentials[] getCredentials() {
-        return credentials.toArray(new AWSEBCredentials[0]);
+    public static Set<AWSEBCredentials> getCredentials() {
+        return credentials;
     }
     
     public static AWSEBCredentials getCredentialsByName(String credentialsName) {
-    	AWSEBCredentials[] credentials = getCredentials();
+    	Set<AWSEBCredentials> credentials = getCredentials();
 
-        if (credentialsName == null && credentials.length > 0)
-            // default
-            return credentials[0];
+    	AWSEBCredentials toReturn = null;
 
         for (AWSEBCredentials credential : credentials) {
-            if (credential.getName().equals(credentialsName))
+        	if (toReturn == null) {
+        		toReturn = credential;
+        	}
+            if (credential.getName().equals(credentialsName)){
                 return credential;
+            }
         }
         
         return null;
