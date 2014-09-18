@@ -1,6 +1,5 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
-
 import hudson.EnvVars;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -20,13 +19,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.AmazonServiceException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.event.ProgressEvent;
-import com.amazonaws.event.ProgressEventType;
-import com.amazonaws.event.ProgressListener;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalkClient;
@@ -40,15 +34,13 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.transfer.TransferManager;
-import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.annotations.VisibleForTesting;
 
 public class Deployer {
 	private static final int MAX_ATTEMPTS = 15;
 
 	private AWSEBDeploymentProvider context;
-	
+
 	private PrintStream logger;
 
 	private AmazonS3 s3;
@@ -77,83 +69,91 @@ public class Deployer {
 
 	private BuildListener listener;
 
-	public Deployer(AWSEBDeploymentProvider builder,
-			AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
+	public Deployer(AWSEBDeploymentProvider builder, AbstractBuild<?, ?> build,
+			Launcher launcher, BuildListener listener) throws IOException,
+			InterruptedException {
 		this.context = builder;
 		this.logger = listener.getLogger();
 		this.env = build.getEnvironment(listener);
 		this.listener = listener;
-		
+
 		this.rootFileObject = new FilePath(build.getWorkspace(),
 				getValue(context.getRootObject()));
 	}
 
 	public void perform() throws Exception {
+		initThis();
 		initAWS();
-		
-		log("Running AWS Elastic Beanstalk deploy for %s, on %s", applicationName, environmentNames);
+
+		log("Running AWS Elastic Beanstalk deploy for %s, on %s",
+				applicationName, environmentNames);
 
 		localArchive = getLocalFileObject(rootFileObject);
 
 		uploadArchive();
 
 		createApplicationVersion();
-		
 
 		updateEnvironments();
 
 		listener.finished(Result.SUCCESS);
-
 	}
 	
-	
-	public void updateEnvironments() throws Exception{
+	private void initThis() {
+		this.keyPrefix = getValue(context.getKeyPrefix());
+		this.bucketName = getValue(context.getBucketName());
+		this.applicationName = getValue(context.getApplicationName());
+		this.versionLabel = getValue(context.getVersionLabelFormat());
+		this.environmentNames = getValue(context.getEnvironments());
+	}
+
+	public void updateEnvironments() throws Exception {
 		DescribeEnvironmentsResult environments;
-		if (environmentNames != null && !environmentNames.isEmpty()) { 
-			environments = awseb.describeEnvironments(
-					new DescribeEnvironmentsRequest()
-						.withApplicationName(applicationName)
-						.withEnvironmentNames(environmentNames)
-				);
+		if (environmentNames != null && !environmentNames.isEmpty()) {
+			environments = awseb
+					.describeEnvironments(new DescribeEnvironmentsRequest()
+							.withApplicationName(applicationName)
+							.withEnvironmentNames(environmentNames));
 		} else {
-			environments = awseb.describeEnvironments(
-					new DescribeEnvironmentsRequest()
-						.withApplicationName(applicationName)
-				);
+			environments = awseb
+					.describeEnvironments(new DescribeEnvironmentsRequest()
+							.withApplicationName(applicationName));
 		}
 		updateEnvironments(environments);
 	}
 
-	public void updateEnvironments(DescribeEnvironmentsResult environments) throws Exception {
-		
+	public void updateEnvironments(DescribeEnvironmentsResult environments)
+			throws Exception {
+
 		List<EnvironmentDescription> envList = environments.getEnvironments();
-		
 
 		if (envList.size() <= 0) {
-			log("No environments found matching applicationName:%s with environments:%s", 
+			log("No environments found matching applicationName:%s with environments:%s",
 					applicationName, environmentNames);
 		}
 
-		for (EnvironmentDescription envd : envList) { // TODO: This should get threaded out if possible for speed.
+		for (EnvironmentDescription envd : envList) { // TODO: This should get
+														// threaded out if
+														// possible for speed.
 
 			String environmentId = envd.getEnvironmentId();
 
 			log("Environment found (environment id=%s, name=%s). Attempting to update environment to version label %s",
 					environmentId, envd.getEnvironmentName(), versionLabel);
-			
+
 			for (int nAttempt = 1; nAttempt <= MAX_ATTEMPTS; nAttempt++) {
 
 				log("Attempt %d/%d", nAttempt, MAX_ATTEMPTS);
-				
+
 				UpdateEnvironmentRequest uavReq = new UpdateEnvironmentRequest()
-						.withEnvironmentId(environmentId)
-						.withVersionLabel(versionLabel);
+						.withEnvironmentId(environmentId).withVersionLabel(
+								versionLabel);
 
 				try {
 					awseb.updateEnvironment(uavReq);
 
 					log("Environment Updated.!");
-					
+
 					break;
 				} catch (Exception exc) {
 					log("Problem: " + exc.getMessage());
@@ -185,74 +185,31 @@ public class Deployer {
 		awseb.createApplicationVersion(cavRequest);
 	}
 
-	// TODO: Probably improve this method so that when the object exists we check the MD5 and
-	//       report in the log our findings.
 	private void uploadArchive() {
-		this.keyPrefix = getValue(context.getKeyPrefix());
-		this.bucketName = getValue(context.getBucketName());
-		this.applicationName = getValue(context.getApplicationName());
-		this.versionLabel = getValue(context.getVersionLabelFormat());
-		this.environmentNames = getValue(context.getEnvironments());
-
 		objectKey = formatPath("%s/%s-%s.zip", keyPrefix, applicationName,
 				versionLabel);
 
 		s3ObjectPath = "s3://" + formatPath("%s/%s", bucketName, objectKey);
 
 		log("Uploading file %s as %s", localArchive.getName(), s3ObjectPath);
-		
+
 		boolean uploadFile = true;
-	
+
 		try {
 			ObjectMetadata meta = s3.getObjectMetadata(bucketName, objectKey);
+			uploadFile = context.isOverwriteExistingFile();
 		} catch (AmazonS3Exception s3e) {
-			if (s3e.getStatusCode() == 404) {
-		        // i.e. 404: NoSuchKey - The specified key does not exist
-				uploadFile = context.isOverwriteExistingFile();
+			if (s3e.getStatusCode() == 403 || s3e.getStatusCode() == 404) {
+				// i.e. 404: NoSuchKey - The specified key does not exist
+				//      403: PermissionDenied is a sneaky way to hide that the file doesn't exist
+				uploadFile = true;
 			} else {
 				throw s3e;
 			}
 		}
-		
+
 		if (uploadFile) {
-			uploadFile(bucketName, objectKey, localArchive);
-		}
-		
-	}
-	
-	private void uploadFile(String bucketName, String objectKey, File file) {
-		// Each instance of TransferManager maintains its own thread pool
-		// where transfers are processed, so share an instance when possible
-		TransferManager tx = new TransferManager(context.getCredentials().getAwsCredentials());
-
-		// The upload and download methods return immediately, while
-		// TransferManager processes the transfer in the background thread pool
-		final Upload upload = tx.upload(bucketName, objectKey, file);
-
-		// You can set a progress listener directly on a transfer, or you can pass one into
-		// the upload object to have it attached to the transfer as soon as it starts
-		upload.addProgressListener(new ProgressListener() {
-		    // This method is called periodically as your transfer progresses
-		    public void progressChanged(ProgressEvent progressEvent) {
-		        logger.println(upload.getProgress().getPercentTransferred() + "%");
-		 
-		        if (progressEvent.getEventType() == ProgressEventType.TRANSFER_COMPLETED_EVENT) {
-		            logger.println("Upload complete!!!");
-		        }
-		    }
-		});
-		
-		// waitForCompletion blocks the current thread until the transfer completes
-		// and will throw an AmazonClientException or AmazonServiceException if
-		// anything went wrong.
-		try {
-			upload.waitForCompletion();
-		} catch (AmazonServiceException e) {
-			e.printStackTrace(logger);
-		} catch (AmazonClientException e) {
-			e.printStackTrace(logger);
-		} catch (InterruptedException e) {
-			e.printStackTrace(logger);
+			s3.putObject(bucketName, objectKey, localArchive);
 		}
 	}
 
@@ -261,7 +218,8 @@ public class Deployer {
 				context.getCredentials().getAwsAccessKeyId(),
 				context.getAwsRegion());
 
-		AWSCredentialsProvider credentials = context.getCredentials().getAwsCredentials();
+		AWSCredentialsProvider credentials = context.getCredentials()
+				.getAwsCredentials();
 		Region region = Region.getRegion(context.getAwsRegion());
 		ClientConfiguration clientConfig = new ClientConfiguration();
 
@@ -272,17 +230,16 @@ public class Deployer {
 		awseb = region.createClient(AWSElasticBeanstalkClient.class,
 				credentials, clientConfig);
 	}
-	
+
 	@VisibleForTesting
 	void setAsweb(AWSElasticBeanstalk awseb) {
 		this.awseb = awseb;
 	}
-	
+
 	@VisibleForTesting
 	void setS3(AmazonS3 s3) {
 		this.s3 = s3;
 	}
-	
 
 	void log(String mask, Object... args) {
 		logger.println(String.format(mask, args));
@@ -300,9 +257,10 @@ public class Deployer {
 					rootFileObject.getName(), resultFile.getName(),
 					context.getIncludes(), context.getExcludes());
 
-			rootFileObject.zip(new FileOutputStream(resultFile),
-					new DirScanner.Glob(context.getIncludes(),
-							context.getExcludes()));
+			rootFileObject.zip(
+					new FileOutputStream(resultFile),
+					new DirScanner.Glob(context.getIncludes(), context
+							.getExcludes()));
 		}
 
 		return resultFile;
@@ -311,7 +269,7 @@ public class Deployer {
 	private String formatPath(String mask, Object... args) {
 		return strip(String.format(mask, args).replaceAll("/{2,}", ""));
 	}
-	
+
 	private List<String> getValue(List<String> values) {
 		List<String> newValues = new ArrayList<String>(values.size());
 		for (String value : values) {
