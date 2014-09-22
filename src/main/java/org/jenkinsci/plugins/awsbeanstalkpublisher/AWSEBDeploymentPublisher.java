@@ -10,6 +10,7 @@ import hudson.Launcher;
 import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
+import hudson.model.Result;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
@@ -148,6 +149,9 @@ public class AWSEBDeploymentPublisher extends Recorder implements AWSEBDeploymen
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) {
+		if (build.getResult().isWorseThan(Result.SUCCESS)){
+			return true;
+		}
 		try {
 			Deployer deployer = new Deployer(this, build, launcher, listener);
 
