@@ -83,4 +83,26 @@ public class AWSEBCredentials implements ModelObject {
         
         return null;
     }
+    
+    @Override
+    public boolean equals(Object o) {
+    	if (o.getClass().equals(this.getClass())) {
+    		return false;
+    	}
+    	AWSEBCredentials creds = (AWSEBCredentials) o;
+    	boolean isSame = this.awsAccessKeyId.equals(creds.awsAccessKeyId);
+    	isSame &= this.awsSecretSharedKey.equals(creds.awsSecretSharedKey);
+    	isSame &= this.name.equals(creds.name);
+    	return isSame;
+    }
+    
+    @Override
+    public String toString() {
+    	return name + " " + awsAccessKeyId;
+    }
+    
+    @Override
+    public int hashCode() {
+    	return (name + awsAccessKeyId + awsSecretSharedKey).hashCode();
+    }
 }
