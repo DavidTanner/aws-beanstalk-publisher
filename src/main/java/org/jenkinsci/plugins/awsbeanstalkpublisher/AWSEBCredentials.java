@@ -60,7 +60,7 @@ public class AWSEBCredentials implements ModelObject {
 	}
 	
 	public static void configureCredentials(Collection<AWSEBCredentials> toAdd) {
-		credentials.addAll(toAdd);
+        credentials.addAll(toAdd);
 	}
 	
     public static Set<AWSEBCredentials> getCredentials() {
@@ -86,7 +86,7 @@ public class AWSEBCredentials implements ModelObject {
     
     @Override
     public boolean equals(Object o) {
-    	if (o.getClass().equals(this.getClass())) {
+    	if (!(o instanceof AWSEBCredentials)) {
     		return false;
     	}
     	AWSEBCredentials creds = (AWSEBCredentials) o;
