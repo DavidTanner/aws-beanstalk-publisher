@@ -41,7 +41,7 @@ After adding the Access Key ID and Secret Key in to the Jenkins master configura
 
 ### Updates
 
-#### -> 2.0
+#### -> 1.0
 * Multithreading the update environment process, in case there are multiple environments to be updated.
 * Added test buttons to see which applications your credentials can see, both in the global and job config.
 * Added a test button to see currently available environment names for the given application.
