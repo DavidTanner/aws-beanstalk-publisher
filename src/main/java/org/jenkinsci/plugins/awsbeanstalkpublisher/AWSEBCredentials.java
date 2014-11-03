@@ -2,7 +2,6 @@ package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -19,7 +18,7 @@ public class AWSEBCredentials implements ModelObject {
     private final String name;
     private final String awsAccessKeyId;
     private final String awsSecretSharedKey;
-    
+
     private final static Set<AWSEBCredentials> credentials = new HashSet<AWSEBCredentials>();
 
     public String getName() {
@@ -39,7 +38,7 @@ public class AWSEBCredentials implements ModelObject {
         awsAccessKeyId = null;
         awsSecretSharedKey = null;
     }
-
+    
     @DataBoundConstructor
     public AWSEBCredentials(String name, String awsAccessKeyId, String awsSecretSharedKey) {
         this.name = name;
@@ -47,62 +46,54 @@ public class AWSEBCredentials implements ModelObject {
         this.awsSecretSharedKey = awsSecretSharedKey;
     }
 
-	public String getDisplayName() {
-		return getName();
-	}
-	
-	public AWSCredentialsProvider getAwsCredentials() {
-		AWSCredentialsProvider credentials = new AWSCredentialsProviderChain(
-				new StaticCredentialsProvider(new BasicAWSCredentials(
-						getAwsAccessKeyId(),
-						getAwsSecretSharedKey())));
-		return credentials;
-	}
-	
-	public static void configureCredentials(Collection<AWSEBCredentials> toAdd) {
+    public String getDisplayName() {
+        return name + " : " + awsAccessKeyId;
+    }
+
+    public AWSCredentialsProvider getAwsCredentials() {
+        AWSCredentialsProvider credentials = new AWSCredentialsProviderChain(new StaticCredentialsProvider(new BasicAWSCredentials(getAwsAccessKeyId(), getAwsSecretSharedKey())));
+        return credentials;
+    }
+
+    public static void configureCredentials(Collection<AWSEBCredentials> toAdd) {
+        credentials.clear();
         credentials.addAll(toAdd);
-	}
-	
+    }
+
     public static Set<AWSEBCredentials> getCredentials() {
         return credentials;
     }
-    
-    public static AWSEBCredentials getCredentialsByName(String credentialsName) {
-    	Set<AWSEBCredentials> credentials = getCredentials();
 
-    	AWSEBCredentials toReturn = null;
+    public static AWSEBCredentials getCredentialsByString(String credentialsString) {
+        Set<AWSEBCredentials> credentials = getCredentials();
 
         for (AWSEBCredentials credential : credentials) {
-        	if (toReturn == null) {
-        		toReturn = credential;
-        	}
-            if (credential.getName().equals(credentialsName)){
+            if (credential.toString().equals(credentialsString)) {
                 return credential;
             }
         }
-        
+
         return null;
     }
-    
+
     @Override
     public boolean equals(Object o) {
-    	if (!(o instanceof AWSEBCredentials)) {
-    		return false;
-    	}
-    	AWSEBCredentials creds = (AWSEBCredentials) o;
-    	boolean isSame = this.awsAccessKeyId.equals(creds.awsAccessKeyId);
-    	isSame &= this.awsSecretSharedKey.equals(creds.awsSecretSharedKey);
-    	isSame &= this.name.equals(creds.name);
-    	return isSame;
+        if (!(o instanceof AWSEBCredentials)) {
+            return false;
+        }
+        AWSEBCredentials creds = (AWSEBCredentials) o;
+        boolean isSame = this.awsAccessKeyId.equals(creds.awsAccessKeyId);
+        isSame &= this.name.equals(creds.name);
+        return isSame;
     }
-    
+
     @Override
     public String toString() {
-    	return name + " " + awsAccessKeyId;
+        return name + " : " + awsAccessKeyId;
     }
-    
+
     @Override
     public int hashCode() {
-    	return (name + awsAccessKeyId + awsSecretSharedKey).hashCode();
+        return (awsAccessKeyId).hashCode();
     }
 }

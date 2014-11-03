@@ -1,23 +1,5 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-  <style type="text/css">
-    div.environment {
-      display: table;
-      width: 100%;
-    }
-    
-    div.environmentbtn {
-      padding: 0px 10px 0px 10px;
-      white-space: nowrap;
-    }
-    
-    div.environmenttxt {
-      display: table-cell;
-      padding-left: 10px;
-      width: 100%;
-    }
-  </style>
-
   <f:entry title="AWS credentials" field="credentials">
     <f:select />
   </f:entry>
@@ -31,10 +13,17 @@
   <f:entry title="Application Name" field="applicationName">
     <f:textbox />
   </f:entry>
+  <f:validateButton
+   title="${%Get Available Applications}" progress="${%Loading...}"
+   method="loadApplications" with="credentials,awsRegion" />
   
   <f:entry title="Environments" field="environmentList">
     <f:textarea />
   </f:entry>
+  
+  <f:validateButton
+   title="${%Get Available Environments}" progress="${%Loading...}"
+   method="loadEnvironments" with="credentials,awsRegion,applicationName" />
   
   <f:entry title="S3 Bucket Name" field="bucketName">
     <f:textbox />
@@ -62,5 +51,9 @@
   
   <f:entry title="Version Label Format" field="versionLabelFormat">
     <f:textbox />
+  </f:entry>
+  
+  <f:entry title="Fail if any failures" field="failOnError">
+    <f:checkbox />
   </f:entry>
 </j:jelly>

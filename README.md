@@ -1,20 +1,52 @@
 # Amazon Web Services Elastic Beanstalk Publisher
 
 
-
-This plugin allows for publishing to an Elastic Beanstalk application as either a Build or Post Build step.  
-
-Amazon credentials are set in the global configuration.  
-If using an access key and secret key then the user needs to have IAM permissions to read and write to the desired S3 bucket, and needs permissions to update Elastic Beanstalk.  At the moment there is no ability to check to see that the version update was successful.
-
-
 ### Master status:
 
 [![Build Status](https://jenkins.ci.cloudbees.com/buildStatus/icon?job=plugins/aws-beanstalk-publisher-plugin)](https://jenkins.ci.cloudbees.com/job/plugins/job/aws-beanstalk-publisher-plugin/)
 
 
-Screenshot: 
-![Demo Screenshot](Demo Screenshot.png)
+This plugin allows for publishing to an Elastic Beanstalk application as either a Build or Post Build step.  
+
+Amazon credentials are set in the global configuration.  
+IAM credentials need to be able to read and upload to S3, and to read and configure Elastic Beanstalk.
+
+#### Example Credentials
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticbeanstalk:*",
+        "s3:*"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+After adding the Access Key ID and Secret Key in to the Jenkins master configuration, click Advanced and choose a region to see what applications your credentials actually see.
+
+
+
+####Screenshot:
+##### Global Configuration 
+![Global Config](globalConfig.png)
+##### Job Configuration
+![Job Config](job config.png)
+
+
+### Updates
+
+#### -> 2.0
+* Multithreading the update environment process, in case there are multiple environments to be updated.
+* Added test buttons to see which applications your credentials can see, both in the global and job config.
+* Added a test button to see currently available environment names for the given application.
+* Verify that environment completed updating.
+* Bug fixes regarding duplicate AWS credentials.
 
 
 ### Attribution

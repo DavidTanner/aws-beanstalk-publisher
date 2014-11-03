@@ -14,7 +14,7 @@ import org.mockito.runners.MockitoJUnitRunner;
 public class DeployerTest {
 	
 	@Mock
-	private AWSEBDeploymentProvider builder;
+	private AWSEBProvider builder;
 	
 	@Mock
 	private FreeStyleBuild build;
