@@ -68,35 +68,34 @@ public class AWSEBEnvironmentUpdater implements Callable<AWSEBEnvironmentUpdater
     private void isReady() {
         try {
             DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
-            String status = "";
-            EnvironmentDescription lastEnv;
+            EnvironmentDescription lastEnv = null;
+            String envName = envd.getEnvironmentName();
             for (EnvironmentDescription env : result.getEnvironments()) {
                 if (env.getEnvironmentId().equals(envd.getEnvironmentId())){
-                    status = env.getStatus();
                     lastEnv = env;
                     break;
                 }
             }
-            if (status.isEmpty()) {
+            if (lastEnv == null) {
                 isComplete = true;
-                log("'%s' is no longer found in ElasticBeanstalk!!!!", envd.getEnvironmentName());
+                log("'%s' is no longer found in ElasticBeanstalk!!!!", envName);
                 return;
             }
-            if (status.equals("Ready")) {
+            if (lastEnv.getStatus().equals("Ready")) {
                 isComplete = true;
                 
-                log("'%s': Updated!", envd.getEnvironmentName());
-                log("'%s': Current version is:'%s'", envd.getEnvironmentName(), envd.getVersionLabel());
+                log("'%s': Updated!", envName);
+                log("'%s': Current version is:'%s'", envName, lastEnv.getVersionLabel());
                 
-                if (envd.getVersionLabel().equals(versionLabel)) {
+                if (lastEnv.getVersionLabel().equals(versionLabel)) {
                     success = true;
-                    log("'%s': Update was successful", envd.getEnvironmentName());
+                    log("'%s': Update was successful", envName);
                 } else {
                     success = false;
-                    log("'%s': Update failed, please check the recent events on the AWS console!!!!");
+                    log("'%s': Update failed, please check the recent events on the AWS console!!!!", envName);
                 }
             } else {
-                log("'%s': Waiting for update to finish. Status: %s", envd.getEnvironmentName(), status);
+                log("'%s': Waiting for update to finish. Status: %s", envName, lastEnv.getStatus());
             }
         } catch (Exception e) {
 
