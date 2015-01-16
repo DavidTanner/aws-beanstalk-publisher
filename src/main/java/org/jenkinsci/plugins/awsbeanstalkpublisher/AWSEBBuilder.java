@@ -27,6 +27,7 @@ import org.kohsuke.stapler.StaplerRequest;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.elasticbeanstalk.model.ApplicationDescription;
 import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
+import com.google.common.base.Joiner;
 
 /**
  * AWS Elastic Beanstalk Deployment
@@ -40,8 +41,11 @@ public class AWSEBBuilder extends Builder implements BuildStep, AWSEBProvider {
     
     
     @DataBoundConstructor
-    public AWSEBBuilder(Regions awsRegion, String applicationName, String environmentList, String bucketName, String keyPrefix, String versionLabelFormat, String rootObject,
-            String includes, String excludes, String credentials, Boolean overwriteExistingFile, Boolean failOnError) {
+    public AWSEBBuilder(Regions awsRegion, String applicationName, 
+            String environmentList, String bucketName, String keyPrefix, 
+            String versionLabelFormat, String rootObject,
+            String includes, String excludes, String credentials, 
+            Boolean overwriteExistingFile, Boolean failOnError) {
         super();
         this.awsRegion = awsRegion;
         this.applicationName = applicationName;
@@ -93,6 +97,11 @@ public class AWSEBBuilder extends Builder implements BuildStep, AWSEBProvider {
     public List<String> getEnvironments() {
         return environments;
     }
+
+    public String getEnvironmentList() {
+        return Joiner.on("\n").join(environments);
+    }
+    
 
     /**
      * Bucket Name
@@ -235,6 +244,17 @@ public class AWSEBBuilder extends Builder implements BuildStep, AWSEBProvider {
 
             return items;
         }
+        
+        public FormValidation doCheckEnvironmentList(@QueryParameter String environmentList) {
+            List<String> badEnv = AWSEBUtils.getBadEnvironmentNames(environmentList);
+            if (badEnv.size() > 0) {
+                return FormValidation.error("Bad environment names: %s", badEnv.toString());
+            } else {
+                return FormValidation.ok();
+            }
+            
+        }
+
 
         public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {
             AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
@@ -246,15 +266,7 @@ public class AWSEBBuilder extends Builder implements BuildStep, AWSEBProvider {
                 return FormValidation.error("Missing valid Region");
             }
             
-            List<ApplicationDescription> apps = AWSEBDeployer.getApplications(credentials.getAwsCredentials(), region);
-            
-            
-            StringBuilder sb = new StringBuilder();
-            for (ApplicationDescription app : apps) {
-                sb.append(app.getApplicationName());
-                sb.append("\n");
-            }
-            return FormValidation.ok(sb.toString());
+            return FormValidation.ok(AWSEBUtils.getApplicationListAsString(credentials, region));
         }
         
         public FormValidation doLoadEnvironments(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString, @QueryParameter("applicationName") String appName) {
@@ -271,13 +283,8 @@ public class AWSEBBuilder extends Builder implements BuildStep, AWSEBProvider {
                 return FormValidation.error("Missing an application name");
             }
             
-            List<EnvironmentDescription> environments = AWSEBDeployer.getEnvironments(credentials.getAwsCredentials(), region, appName);
-            StringBuilder sb = new StringBuilder();
-            for (EnvironmentDescription env : environments) {
-                sb.append(env.getEnvironmentName());
-                sb.append("\n");
-            }
-            return FormValidation.ok(sb.toString());
+           
+            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
         }
 
     }

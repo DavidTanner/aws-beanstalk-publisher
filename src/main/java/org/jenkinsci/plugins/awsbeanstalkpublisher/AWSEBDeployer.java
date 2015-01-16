@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -45,7 +46,6 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.google.common.annotations.VisibleForTesting;
 
 public class AWSEBDeployer {
-    private static final Logger logger = Logger.getLogger(AWSEBDeployer.class.getName());
 
     private AWSEBProvider context;
 
@@ -74,9 +74,9 @@ public class AWSEBDeployer {
     private List<String> environmentNames;
 
     private BuildListener listener;
-    
+
     private AbstractBuild<?, ?> build;
-    
+
     private final static int MAX_THREAD_COUNT = 5;
 
     public AWSEBDeployer(AWSEBProvider builder, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
@@ -85,7 +85,7 @@ public class AWSEBDeployer {
         this.log = listener.getLogger();
         this.listener = listener;
 
-        this.rootFileObject = new FilePath(build.getWorkspace(), getValue(context.getRootObject()));
+        this.rootFileObject = new FilePath(build.getWorkspace(), AWSEBUtils.getValue(build, context.getRootObject()));
     }
 
     public void perform() throws Exception {
@@ -104,11 +104,11 @@ public class AWSEBDeployer {
     }
 
     private void initThis() {
-        this.keyPrefix = getValue(context.getKeyPrefix());
-        this.bucketName = getValue(context.getBucketName());
-        this.applicationName = getValue(context.getApplicationName());
-        this.versionLabel = getValue(context.getVersionLabelFormat());
-        this.environmentNames = getValue(context.getEnvironments());
+        this.keyPrefix = AWSEBUtils.getValue(build, context.getKeyPrefix());
+        this.bucketName = AWSEBUtils.getValue(build, context.getBucketName());
+        this.applicationName = AWSEBUtils.getValue(build, context.getApplicationName());
+        this.versionLabel = AWSEBUtils.getValue(build, context.getVersionLabelFormat());
+        this.environmentNames = AWSEBUtils.getValue(build, context.getEnvironments());
     }
 
     public void updateEnvironments() {
@@ -135,38 +135,37 @@ public class AWSEBDeployer {
             listener.finished(Result.SUCCESS);
             return;
         }
-        
+
         ExecutorService pool = Executors.newFixedThreadPool(MAX_THREAD_COUNT);
-        
+
         List<AWSEBEnvironmentUpdater> updaters = new ArrayList<AWSEBEnvironmentUpdater>();
         for (EnvironmentDescription envd : envList) {
             log("Environment found (environment id='%s', name='%s'). Attempting to update environment to version label '%s'", envd.getEnvironmentId(), envd.getEnvironmentName(), versionLabel);
             updaters.add(new AWSEBEnvironmentUpdater(awseb, request, envd, log, versionLabel));
         }
         List<Future<AWSEBEnvironmentUpdater>> results = pool.invokeAll(updaters);
-        
+
         printResults(results);
     }
-    
+
     private void printResults(List<Future<AWSEBEnvironmentUpdater>> results) {
         boolean hadFailures = false;
         for (Future<AWSEBEnvironmentUpdater> future : results) {
             try {
-            AWSEBEnvironmentUpdater result = future.get();
-            hadFailures |= result.isSuccessfull();
-            result.printResults();
+                AWSEBEnvironmentUpdater result = future.get();
+                hadFailures |= result.isSuccessfull();
+                result.printResults();
             } catch (Exception e) {
                 log("Unable to get results from update");
                 e.printStackTrace(log);
             }
         }
-        if (context.getFailOnError() && hadFailures){
+        if (context.getFailOnError() && hadFailures) {
             listener.finished(Result.FAILURE);
         } else {
             listener.finished(Result.SUCCESS);
         }
     }
-    
 
     private void createApplicationVersion() {
         log("Creating application version %s for application %s for path %s", versionLabel, applicationName, s3ObjectPath);
@@ -178,9 +177,9 @@ public class AWSEBDeployer {
     }
 
     private void uploadArchive() {
-        objectKey = formatPath("%s/%s-%s.zip", keyPrefix, applicationName, versionLabel);
+        objectKey = AWSEBUtils.formatPath("%s/%s-%s.zip", keyPrefix, applicationName, versionLabel);
 
-        s3ObjectPath = "s3://" + formatPath("%s/%s", bucketName, objectKey);
+        s3ObjectPath = "s3://" + AWSEBUtils.formatPath("%s/%s", bucketName, objectKey);
 
         log("Uploading file %s as %s", localArchive.getName(), s3ObjectPath);
 
@@ -203,17 +202,17 @@ public class AWSEBDeployer {
             s3.putObject(bucketName, objectKey, localArchive);
         }
     }
-    
+
     public static AWSElasticBeanstalk getElasticBeanstalk(AWSCredentialsProvider credentials, Region region) {
         AWSElasticBeanstalk awseb = region.createClient(AWSElasticBeanstalkClient.class, credentials, getClientConfig());
         return awseb;
     }
-    
+
     public static AmazonS3 getS3(AWSCredentialsProvider credentials, Region region) {
         AmazonS3 s3 = region.createClient(AmazonS3Client.class, credentials, getClientConfig());
         return s3;
     }
-    
+
     public static ClientConfiguration getClientConfig() {
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setUserAgent(ClientConfiguration.DEFAULT_USER_AGENT);
@@ -222,10 +221,10 @@ public class AWSEBDeployer {
 
     private void initAWS() {
         log("Creating S3 and AWSEB Client (AWS Access Key Id: %s, region: %s)", context.getCredentials().getAwsAccessKeyId(), context.getAwsRegion());
-        
+
         AWSCredentialsProvider provider = context.getCredentials().getAwsCredentials();
         Region region = Region.getRegion(context.getAwsRegion());
-        
+
         s3 = getS3(provider, region);
         awseb = getElasticBeanstalk(provider, region);
     }
@@ -260,61 +259,5 @@ public class AWSEBDeployer {
         return resultFile;
     }
 
-    private String formatPath(String mask, Object... args) {
-        return strip(String.format(mask, args).replaceAll("/{2,}", ""));
-    }
 
-    private List<String> getValue(List<String> values) {
-        List<String> newValues = new ArrayList<String>(values.size());
-        for (String value : values) {
-            if (!value.isEmpty()) {
-                newValues.add(getValue(value));
-            }
-        }
-        return newValues;
-    }
-
-    private String getValue(String value) {
-        return strip(replaceMacros(build, value));
-    }
-
-    private static String strip(String str) {
-        return StringUtils.strip(str, "/ ");
-    }
-    
-
-    public static List<ApplicationDescription> getApplications(AWSCredentialsProvider credentials, Regions region) {
-        AWSElasticBeanstalk awseb = AWSEBDeployer.getElasticBeanstalk(credentials, Region.getRegion(region));
-        DescribeApplicationsResult result = awseb.describeApplications();
-        return result.getApplications();
-    }
-    
-    public static List<EnvironmentDescription> getEnvironments(AWSCredentialsProvider credentials, Regions region, String appName) {
-        AWSElasticBeanstalk awseb = AWSEBDeployer.getElasticBeanstalk(credentials, Region.getRegion(region));
-        
-        DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest().withApplicationName(appName);
-                
-        DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
-        return result.getEnvironments();
-    }
-    
-    public static String replaceMacros(AbstractBuild<?, ?> build, String inputString) {
-        String returnString = inputString;
-        if (build != null && inputString != null) {
-            try {
-                Map<String, String> messageEnvVars = new HashMap<String, String>();
-
-                messageEnvVars.putAll(build.getCharacteristicEnvVars());
-                messageEnvVars.putAll(build.getBuildVariables());
-                messageEnvVars.putAll(build.getEnvironment(new LogTaskListener(logger, Level.INFO)));
-
-                returnString = Util.replaceMacro(inputString, messageEnvVars);
-
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Couldn't replace macros in message: ", e);
-            }
-        }
-        return returnString;
-
-    }
 }
