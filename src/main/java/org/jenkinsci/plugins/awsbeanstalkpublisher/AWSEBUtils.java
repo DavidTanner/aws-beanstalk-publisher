@@ -4,6 +4,7 @@ import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.util.LogTaskListener;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,15 +15,19 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
+import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalkClient;
 import com.amazonaws.services.elasticbeanstalk.model.ApplicationDescription;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeApplicationsResult;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsRequest;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsResult;
 import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 
 public class AWSEBUtils {
 
@@ -43,7 +48,15 @@ public class AWSEBUtils {
         }
         return newValues;
     }
+    
+    public static AmazonS3 getS3(AWSEBCredentials credentials, Regions awsRegion) {
+        AWSCredentialsProvider provider = credentials.getAwsCredentials();
+        Region region = Region.getRegion(awsRegion);
 
+        AmazonS3 s3 = region.createClient(AmazonS3Client.class, provider, AWSEBUtils.getClientConfig());
+        return s3;
+    }
+    
     public static String getValue(AbstractBuild<?, ?> build, String value) {
         return strip(replaceMacros(build, value));
     }
@@ -92,13 +105,13 @@ public class AWSEBUtils {
     }
 
     public static List<ApplicationDescription> getApplications(AWSCredentialsProvider credentials, Regions region) {
-        AWSElasticBeanstalk awseb = AWSEBDeployer.getElasticBeanstalk(credentials, Region.getRegion(region));
+        AWSElasticBeanstalk awseb = getElasticBeanstalk(credentials, Region.getRegion(region));
         DescribeApplicationsResult result = awseb.describeApplications();
         return result.getApplications();
     }
 
     public static List<EnvironmentDescription> getEnvironments(AWSCredentialsProvider credentials, Regions region, String appName) {
-        AWSElasticBeanstalk awseb = AWSEBDeployer.getElasticBeanstalk(credentials, Region.getRegion(region));
+        AWSElasticBeanstalk awseb = getElasticBeanstalk(credentials, Region.getRegion(region));
 
         DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest().withApplicationName(appName);
 
@@ -124,6 +137,22 @@ public class AWSEBUtils {
         }
         return returnString;
 
+    }
+    
+    public static AWSElasticBeanstalk getElasticBeanstalk(AWSCredentialsProvider credentials, Region region) {
+        AWSElasticBeanstalk awseb = region.createClient(AWSElasticBeanstalkClient.class, credentials, getClientConfig());
+        return awseb;
+    }
+    
+    public static ClientConfiguration getClientConfig() {
+        ClientConfiguration clientConfig = new ClientConfiguration();
+        clientConfig.setUserAgent(ClientConfiguration.DEFAULT_USER_AGENT);
+        return clientConfig;
+    }
+    
+
+    public static void log(PrintStream log, String mask, Object... args) {
+        log.println(String.format(mask, args));
     }
 
 }

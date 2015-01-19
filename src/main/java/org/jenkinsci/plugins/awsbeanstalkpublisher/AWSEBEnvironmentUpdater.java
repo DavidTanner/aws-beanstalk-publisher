@@ -1,155 +1,134 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
-import java.io.PrintStream;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
+import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
+import hudson.model.Result;
 
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetup;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBElasticBeanstalkSetup;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBS3Setup;
+
+import com.amazonaws.auth.AWSCredentialsProvider;
+import com.amazonaws.regions.Region;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsRequest;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsResult;
 import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
-import com.amazonaws.services.elasticbeanstalk.model.UpdateEnvironmentRequest;
 
-public class AWSEBEnvironmentUpdater implements Callable<AWSEBEnvironmentUpdater> {
-    private static final int MAX_ATTEMPTS = 15;
-    private static final int WAIT_TIME_SECONDS = 90;
-    private static final long WAIT_TIME_MILLISECONDS = TimeUnit.SECONDS.toMillis(WAIT_TIME_SECONDS);
+public class AWSEBEnvironmentUpdater {
     
-    private final EnvironmentDescription envd;
-    private final AWSElasticBeanstalk awseb;
-    private final DescribeEnvironmentsRequest request;
-    private final String environmentId;
-    private final PrintStream logger;
+    private final static int MAX_THREAD_COUNT = 5;
+    
+    private final AbstractBuild<?, ?> build;
+    private final BuildListener listener;
+    private final PrintStream log;
+    private final AWSEBElasticBeanstalkSetup envSetup;
+    
+    private final List<String> environments;
+    private final String applicationName;
     private final String versionLabel;
+    private final AWSElasticBeanstalk awseb;
+    private final boolean failOnError;
+    
+    
+    public AWSEBEnvironmentUpdater(AbstractBuild<?, ?> build, Launcher launcher, 
+            BuildListener listener, AWSEBElasticBeanstalkSetup envSetup){
+        this.build = build;
+        this.listener = listener;
+        this.log = listener.getLogger();
+        this.envSetup = envSetup;
+        
+        environments = AWSEBUtils.getValue(build, envSetup.getEnvironments());
+        applicationName = AWSEBUtils.getValue(build, envSetup.getApplicationName());
+        versionLabel = AWSEBUtils.getValue(build, envSetup.getVersionLabelFormat());
+        failOnError = envSetup.getFailOnError();
+        
 
-    private boolean isUpdated = false;
-    private boolean isComplete = false;
-    private boolean success = false;
-    private int nAttempt;
-
-    public AWSEBEnvironmentUpdater(AWSElasticBeanstalk awseb, DescribeEnvironmentsRequest request, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
-        this.awseb = awseb;
-        this.envd = envd;
-        this.logger = logger;
-        this.versionLabel = versionLabel;
-        this.request = request;
-        this.environmentId = envd.getEnvironmentId();
-        nAttempt = 0;
-
-    }
-
-    private void log(String mask, Object... args) {
-        logger.println(String.format(mask, args));
-    }
-
-    private void updateEnv() {
-
-        log("'%s': Attempt %d/%d", envd.getEnvironmentName(), nAttempt, MAX_ATTEMPTS);
-
-        UpdateEnvironmentRequest uavReq = new UpdateEnvironmentRequest().withEnvironmentId(environmentId).withVersionLabel(versionLabel);
-        nAttempt = 0;
-        isUpdated = true;
-
-        try {
-            awseb.updateEnvironment(uavReq);
-            isReady();
-        } catch (Exception e) {
-            log("'%s': Problem:", envd.getEnvironmentName());
-            e.printStackTrace(logger);
-
-            if (nAttempt >= MAX_ATTEMPTS) {
-                log("'%s': Unable to update environment!", envd.getEnvironmentName());
-                isComplete = true;
-            }
-
-        }
-    }
-
-    private void isReady() {
-        try {
-            DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
-            EnvironmentDescription lastEnv = null;
-            String envName = envd.getEnvironmentName();
-            for (EnvironmentDescription env : result.getEnvironments()) {
-                if (env.getEnvironmentId().equals(envd.getEnvironmentId())){
-                    lastEnv = env;
-                    break;
-                }
-            }
-            if (lastEnv == null) {
-                isComplete = true;
-                log("'%s' is no longer found in ElasticBeanstalk!!!!", envName);
-                return;
-            }
-            if (lastEnv.getStatus().equals("Ready")) {
-                isComplete = true;
-                
-                log("'%s': Updated!", envName);
-                log("'%s': Current version is:'%s'", envName, lastEnv.getVersionLabel());
-                
-                if (lastEnv.getVersionLabel().equals(versionLabel)) {
-                    success = true;
-                    log("'%s': Update was successful", envName);
-                } else {
-                    success = false;
-                    log("'%s': Update failed, please check the recent events on the AWS console!!!!", envName);
-                }
-            } else {
-                log("'%s': Waiting for update to finish. Status: %s", envName, lastEnv.getStatus());
-            }
-        } catch (Exception e) {
-
-            log("Problem: " + e.getMessage());
-
-            if (nAttempt >= MAX_ATTEMPTS) {
-                log("'%s': unable to get environment status.", envd.getEnvironmentName());
-                isComplete = true;
-            }
-        }
-    }
-
-    @Override
-    public AWSEBEnvironmentUpdater call() throws Exception {
-        run();
-        return this;
+        AWSCredentialsProvider provider = envSetup.getCredentials().getAwsCredentials();
+        Region region = Region.getRegion(envSetup.getAwsRegion());
+        
+        awseb = AWSEBUtils.getElasticBeanstalk(provider, region);
     }
     
-    public void printResults() {
-        StringBuilder status = new StringBuilder();
-        status.append("'");
-        status.append(envd.getEnvironmentName());
-        status.append("': ");
-        if (success) {
-            status.append("Completed successfully.");
+    public void perform() throws Exception{
+        for (AWSEBSetup extension : envSetup.getExtensions()) {
+            if (extension instanceof AWSEBS3Setup){
+                AWSEBS3Setup s3 = (AWSEBS3Setup) extension;
+                AWSEBS3Uploader uploader = new AWSEBS3Uploader(build, listener, envSetup, s3);
+                uploader.uploadArchive(awseb);
+            }
+        }
+        
+        updateEnvironments();
+    }
+    
+    public void updateEnvironments() {
+        DescribeEnvironmentsRequest request;
+        if (environments != null && !environments.isEmpty()) {
+            request = new DescribeEnvironmentsRequest().withApplicationName(applicationName)
+                    .withEnvironmentNames(environments);
         } else {
-            if (isUpdated) {
-                status.append("Was updated, but couldn't be verified!");
-            } else {
-                status.append("Failed to be updated!!");
-            }
+            request = new DescribeEnvironmentsRequest().withApplicationName(applicationName);
         }
-        log(status.toString());
-    }
-    
-    public boolean isSuccessfull() {
-        return success;
+        try {
+            updateEnvironments(request);
+        } catch (Exception e) {
+            e.printStackTrace(log);
+        }
     }
 
-    public void run() {
-        while (!isComplete) {
-            if (isUpdated) {
-                isReady();
-            } else {
-                updateEnv();
-            }
-            if (!isComplete){
-                try {
-                    log("'%s': Pausing update for %d seconds", envd.getEnvironmentName(), WAIT_TIME_SECONDS);
-                    Thread.sleep(WAIT_TIME_MILLISECONDS);
-                } catch (InterruptedException e) {
-                    e.printStackTrace(logger);
-                }
+    public void updateEnvironments(DescribeEnvironmentsRequest request) throws InterruptedException {
+        DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
+
+        List<EnvironmentDescription> envList = result.getEnvironments();
+
+        if (envList.size() <= 0) {
+            AWSEBUtils.log(log, "No environments found matching applicationName:%s with environments:%s", 
+                    applicationName, environments);
+            listener.finished(Result.SUCCESS);
+            return;
+        }
+
+        ExecutorService pool = Executors.newFixedThreadPool(MAX_THREAD_COUNT);
+
+        List<AWSEBEnvironmentUpdaterThread> updaters = new ArrayList<AWSEBEnvironmentUpdaterThread>();
+        for (EnvironmentDescription envd : envList) {
+            AWSEBUtils.log(log, "Environment found (environment id='%s', name='%s'). "
+                    + "Attempting to update environment to version label '%s'", 
+                    envd.getEnvironmentId(), envd.getEnvironmentName(), versionLabel);
+            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, request, envd, log, versionLabel));
+        }
+        List<Future<AWSEBEnvironmentUpdaterThread>> results = pool.invokeAll(updaters);
+
+        printResults(listener, results);
+    }
+
+    private void printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
+        PrintStream log = listener.getLogger();
+        boolean hadFailures = false;
+        for (Future<AWSEBEnvironmentUpdaterThread> future : results) {
+            try {
+                AWSEBEnvironmentUpdaterThread result = future.get();
+                hadFailures |= result.isSuccessfull();
+                result.printResults();
+            } catch (Exception e) {
+                AWSEBUtils.log(log, "Unable to get results from update");
+                e.printStackTrace(log);
             }
         }
+        if (failOnError && hadFailures) {
+            listener.finished(Result.FAILURE);
+        } else {
+            listener.finished(Result.SUCCESS);
+        }
     }
+
 }

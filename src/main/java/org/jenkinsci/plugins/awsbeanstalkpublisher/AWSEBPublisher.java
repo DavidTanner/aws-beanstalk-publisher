@@ -3,10 +3,10 @@ package org.jenkinsci.plugins.awsbeanstalkpublisher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.Util;
 import hudson.init.InitMilestone;
 import hudson.init.Initializer;
 import hudson.model.BuildListener;
@@ -14,27 +14,28 @@ import hudson.model.Items;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Result;
+import hudson.model.Saveable;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
-import hudson.tasks.Recorder;
+import hudson.util.DescribableList;
 import hudson.util.FormValidation;
-import hudson.util.ListBoxModel;
 import net.sf.json.JSONObject;
 
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBElasticBeanstalkSetup;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetup;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetupDescriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.elasticbeanstalk.model.ApplicationDescription;
-import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
-import com.google.common.base.Joiner;
 
 /**
  * AWS Elastic Beanstalk Deployment
  */
-public class AWSEBPublisher extends Recorder implements AWSEBProvider {
+public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
     
     @Initializer(before=InitMilestone.PLUGINS_STARTED)
     public static void addAlias() {
@@ -42,125 +43,27 @@ public class AWSEBPublisher extends Recorder implements AWSEBProvider {
     }
     
     @DataBoundConstructor
-    public AWSEBPublisher(Regions awsRegion, 
-            String applicationName, String environmentList, String bucketName, 
-            String keyPrefix, String versionLabelFormat, String rootObject,
-            String includes, String excludes, String credentials, Boolean overwriteExistingFile, Boolean failOnError) {
+    public AWSEBPublisher(
+            List<AWSEBElasticBeanstalkSetup> extensions) {
         super();
-        this.awsRegion = awsRegion;
-        this.applicationName = applicationName;
-        this.environments = new ArrayList<String>();
-        for (String next : environmentList.split("\n")) {
-            this.environments.add(next);
+        this.extensions = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(
+                Saveable.NOOP,Util.fixNull(extensions));
+    }
+    
+    private DescribableList<AWSEBSetup, AWSEBSetupDescriptor> extensions;
+    
+    public DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getExtensions() {
+        if (extensions == null) {
+            extensions = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP,Util.fixNull(extensions));
         }
-        this.bucketName = bucketName;
-        this.keyPrefix = keyPrefix;
-        this.versionLabelFormat = versionLabelFormat;
-        this.rootObject = rootObject;
-        this.includes = includes;
-        this.excludes = excludes;
-        this.credentials = AWSEBCredentials.getCredentialsByString(credentials);
-        this.overwriteExistingFile = overwriteExistingFile;
-        this.failOnError = failOnError;
-    }
-    
-    
-    private final Boolean failOnError;
-    
-    public boolean getFailOnError() {
-        return failOnError == null ? false : failOnError;
-    }
-
-    /**
-     * AWS Region
-     */
-    private final Regions awsRegion;
-
-    public Regions getAwsRegion() {
-        return awsRegion;
-    }
-
-    /**
-     * Application Name
-     */
-    private final String applicationName;
-
-    public String getApplicationName() {
-        return applicationName;
-    }
-
-    /**
-     * Environment Name
-     */
-    private final List<String> environments;
-
-    public List<String> getEnvironments() {
-        return environments;
-    }
-
-    public String getEnvironmentList() {
-        return Joiner.on("\n").join(environments);
+        return extensions;
     }
     
 
-    /**
-     * Bucket Name
-     */
-    private final String bucketName;
-
-    public String getBucketName() {
-        return bucketName;
+    public Object readResolve() {
+        readBackExtensionsFromLegacy();
+        return this;
     }
-
-    /**
-     * Key Format
-     */
-    private final String keyPrefix;
-
-    public String getKeyPrefix() {
-        return keyPrefix;
-    }
-
-    private final String versionLabelFormat;
-
-    public String getVersionLabelFormat() {
-        return versionLabelFormat;
-    }
-
-    private final String rootObject;
-
-    public String getRootObject() {
-        return rootObject;
-    }
-
-    private final String includes;
-
-    public String getIncludes() {
-        return includes;
-    }
-
-    private final String excludes;
-
-    public String getExcludes() {
-        return excludes;
-    }
-
-    private final Boolean overwriteExistingFile;
-
-    @Override
-    public boolean isOverwriteExistingFile() {
-        return (overwriteExistingFile == null ? false : overwriteExistingFile);
-    }
-
-    /**
-     * Credentials Name from the global config
-     */
-    private final AWSEBCredentials credentials;
-
-    public AWSEBCredentials getCredentials() {
-        return credentials;
-    }
-    
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
@@ -168,9 +71,6 @@ public class AWSEBPublisher extends Recorder implements AWSEBProvider {
             return true;
         }
         try {
-            AWSEBDeployer deployer = new AWSEBDeployer(this, build, launcher, listener);
-
-            deployer.perform();
 
             return true;
         } catch (Exception exc) {
@@ -217,7 +117,14 @@ public class AWSEBPublisher extends Recorder implements AWSEBProvider {
          * This human readable name is used in the configuration screen.
          */
         public String getDisplayName() {
-            return "Deploy to AWS Elastic Beanstalk";
+            return "Deploy into AWS Elastic Beanstalk";
+        }
+
+        
+        public List<AWSEBSetupDescriptor> getExtensionDescriptors() {
+            List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
+            extensions.add(AWSEBElasticBeanstalkSetup.getDesc());
+            return extensions;
         }
 
         public DescriptorImpl() {
@@ -262,17 +169,6 @@ public class AWSEBPublisher extends Recorder implements AWSEBProvider {
             return FormValidation.ok(sb.toString());
         }
         
-        public FormValidation doCheckEnvironmentList(@QueryParameter String environmentList) {
-            List<String> badEnv = AWSEBUtils.getBadEnvironmentNames(environmentList);
-            if (badEnv.size() > 0) {
-                return FormValidation.error("Bad environment names: %s", badEnv.toString());
-            } else {
-                return FormValidation.ok();
-            }
-            
-        }
-
-
         public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {
             AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
             if (credentials == null) {

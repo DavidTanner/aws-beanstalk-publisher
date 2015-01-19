@@ -1,59 +1,8 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-  <f:entry title="AWS credentials" field="credentials">
-    <f:select />
-  </f:entry>
-    
-  <f:entry title="AWS Region" field="awsRegion">
-    <f:enum field="awsRegion">
-        ${it.getName()}
-    </f:enum>
-  </f:entry>
-    
-  <f:entry title="Application Name" field="applicationName">
-    <f:textbox />
-  </f:entry>
-  <f:validateButton
-   title="${%Get Available Applications}" progress="${%Loading...}"
-   method="loadApplications" with="credentials,awsRegion" />
-  
-  <f:entry title="Environments" field="environmentList">
-    <f:textarea />
-  </f:entry>
-  
-  <f:validateButton
-   title="${%Get Available Environments}" progress="${%Loading...}"
-   method="loadEnvironments" with="credentials,awsRegion,applicationName" />
-  
-  <f:entry title="S3 Bucket Name" field="bucketName">
-    <f:textbox />
-  </f:entry>
-  
-  <f:entry title="S3 Key Prefix" field="keyPrefix">
-    <f:textbox />
-  </f:entry>
-  
-  <f:entry title="S3 Overwrite existing file" field="overwriteExisting">
-    <f:checkbox />
-  </f:entry>
-  
-  <f:entry title="Root Object (File / Directory)" field="rootObject">
-    <f:textbox />
-  </f:entry>
-  
-  <f:entry title="Includes" field="includes">
-    <f:textbox />
-  </f:entry>
-  
-  <f:entry title="Excludes" field="excludes">
-    <f:textbox />
-  </f:entry>
-  
-  <f:entry title="Version Label Format" field="versionLabelFormat">
-    <f:textbox />
-  </f:entry>
-  
-  <f:entry title="Fail if any failures" field="failOnError">
-    <f:checkbox />
+  <f:entry title="${%Application Setup}">
+    <!-- TODO: switch to <f:repeatableHeteroList field="extensions"> -->
+    <f:hetero-list name="extensions" items="${instance.extensions}" descriptors="${descriptor.getExtensionDescriptors()}"
+                   hasHeader="true" />
   </f:entry>
 </j:jelly>

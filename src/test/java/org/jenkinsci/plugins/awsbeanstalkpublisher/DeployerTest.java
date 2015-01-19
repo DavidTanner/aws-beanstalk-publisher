@@ -14,9 +14,6 @@ import org.mockito.runners.MockitoJUnitRunner;
 public class DeployerTest {
 	
 	@Mock
-	private AWSEBProvider builder;
-	
-	@Mock
 	private FreeStyleBuild build;
 	
 	@Mock 
@@ -27,7 +24,6 @@ public class DeployerTest {
 
 	@Test
 	public void test() throws Exception {
-//		Deployer dep = new Deployer(builder, build, launcher, listener);
 		
 	}
 }
