@@ -10,6 +10,7 @@ import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetup;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetupDescriptor;
 
 import com.amazonaws.regions.Regions;
+import com.google.common.base.Joiner;
 
 import hudson.tasks.BuildStep;
 import hudson.tasks.Builder;
@@ -20,11 +21,11 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
 
     abstract DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getExtensions();
 
-    void readBackExtensionsFromLegacy() {
+    protected void readBackExtensionsFromLegacy() {
         try {
-            if (isNotBlank(applicationName)) {
+            if (isNotBlank(applicationName) || (environments != null && environments.size() > 0) || isNotBlank(versionLabelFormat)) {
                 List<AWSEBSetup> s3Setup = new ArrayList<AWSEBSetup>(1);
-                if (isNotBlank(bucketName)) {
+                if (isNotBlank(bucketName) || isNotBlank(keyPrefix)) {
                     s3Setup.add(new AWSEBS3Setup(bucketName, keyPrefix, 
                             rootObject, includes, excludes, overwriteExistingFile));
                     bucketName = null;
@@ -33,27 +34,30 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
                     includes = null;
                     excludes = null;
                 }
-                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, credentials.getDisplayName(), applicationName, 
-                        environmentList, versionLabelFormat, failOnError, s3Setup));
+                String credentialsName = "";
+                if (credentials != null ){
+                    credentialsName = credentials.getDisplayName();
+                }
+                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, credentialsName, 
+                        applicationName, Joiner.on('\n').join(environments), 
+                        versionLabelFormat, failOnError, s3Setup));
             }
 
         } catch (IOException e) {
             throw new AssertionError(e); // since our extensions don't have any real Saveable
         }
     }
-
-    private void addIfMissing(AWSEBSetup ext) throws IOException {
+    protected void addIfMissing(AWSEBSetup ext) throws IOException {
         if (getExtensions().get(ext.getClass()) == null) {
             getExtensions().add(ext);
         }
     }
     
-
     /**
      * Credentials Name from the global config
      * @deprecated
      */
-    protected transient AWSEBCredentials credentials;
+    private transient AWSEBCredentials credentials;
 
     /**
      * Bucket Name
@@ -109,9 +113,9 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
      * 
      * @deprecated
      */
-    protected transient String environmentList;
+    protected transient List<String> environments;
 
     @Deprecated
     protected transient String versionLabelFormat;
-
+    
 }

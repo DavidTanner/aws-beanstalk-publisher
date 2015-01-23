@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 
 public abstract class AWSEBPublisherBackwardsCompatibility  extends Recorder {
 
-    abstract DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getExtensions();
+    public abstract DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getExtensions();
 
     protected void readBackExtensionsFromLegacy() {
         try {
