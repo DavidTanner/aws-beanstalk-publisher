@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.jenkins-ci.plugins</groupId>
@@ -8,7 +7,7 @@
     </parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>aws-beanstalk-publisher-plugin</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.7-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>AWS Elastic Beanstalk Publisher Plugin</name>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/AWS+Beanstalk+Publisher+Plugin</url>
@@ -29,14 +28,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <version>1.5</version>
-                <configuration>
-                    <licenseName>apache_v2</licenseName>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>2.0.2</version>
@@ -45,18 +36,71 @@
                     <target>1.6</target>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.16</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-junit47</artifactId>
+                        <version>2.16</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>2.16</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-release-plugin</artifactId>
+                <version>2.5</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.scm</groupId>
+                        <artifactId>maven-scm-provider-gitexe</artifactId>
+                        <version>1.9.1</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
         </plugins>
     </build>
     <scm>
         <connection>scm:git:ssh://github.com/jenkinsci/aws-beanstalk-publisher-plugin.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/jenkinsci/aws-beanstalk-publisher-plugin.git</developerConnection>
         <url>https://wiki.jenkins-ci.org/display/JENKINS/AWS+Beanstalk+Publisher+Plugin</url>
-    </scm>
+      <tag>HEAD</tag>
+  </scm>
     <dependencies>
         <dependency>
             <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk</artifactId>
-            <version>1.8.9.1</version>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <version>1.9.8</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency><dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-elasticbeanstalk</artifactId>
+            <version>1.9.8</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
@@ -65,9 +109,10 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.google.collections</groupId>
-            <artifactId>google-collections</artifactId>
-            <version>1.0</version>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-all</artifactId>
+            <version>1.9.5</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
     <!-- get every artifact through repo.jenkins-ci.org, which proxies all 

@@ -17,6 +17,18 @@
                         <f:textbox name="credential.awsSecretSharedKey" value="${credential.awsSecretSharedKey}"/>
                     </f:entry>
                     
+                    <f:advanced>
+                      <f:entry title="AWS Region" field="awsRegion">
+                        <f:enum field="awsRegion">
+                            ${it.getName()}
+                        </f:enum>
+                      </f:entry>
+                      
+                      <f:validateButton
+                       title="${%Get Available Applications}" progress="${%Loading...}"
+                       method="loadApplicationsGlobal" with="credential.awsAccessKeyId,credential.awsSecretSharedKey,awsRegion" />
+                    </f:advanced>
+                    
                     <f:entry title="">
                         <div align="right">
                         <f:repeatableDeleteButton value="Delete"/>
