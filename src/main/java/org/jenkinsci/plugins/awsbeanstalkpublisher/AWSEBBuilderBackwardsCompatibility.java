@@ -53,41 +53,41 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
      * Credentials Name from the global config
      * @deprecated
      */
-    private transient AWSEBCredentials credentials;
+    protected transient AWSEBCredentials credentials;
 
     /**
      * Bucket Name
      * 
      * @deprecated
      */
-    private transient String bucketName;
+    protected transient String bucketName;
 
     /**
      * Key Format
      * 
      * @deprecated
      */
-    private transient String keyPrefix;
+    protected transient String keyPrefix;
 
 
     @Deprecated
-    private transient String rootObject;
+    protected transient String rootObject;
 
 
     @Deprecated
-    private transient String includes;
+    protected transient String includes;
 
 
     @Deprecated
-    private transient String excludes;
+    protected transient String excludes;
 
 
     @Deprecated
-    private transient Boolean overwriteExistingFile;
+    protected transient Boolean overwriteExistingFile;
 
 
     @Deprecated
-    private transient Boolean failOnError;
+    protected transient Boolean failOnError;
 
 
     /**
@@ -95,23 +95,23 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
      * 
      * @deprecated
      */
-    private transient Regions awsRegion;
+    protected transient Regions awsRegion;
 
     /**
      * Application Name
      * 
      * @deprecated
      */
-    private transient String applicationName;
+    protected transient String applicationName;
 
     /**
      * Environment Name
      * 
      * @deprecated
      */
-    private transient String environmentList;
+    protected transient String environmentList;
 
     @Deprecated
-    private transient String versionLabelFormat;
+    protected transient String versionLabelFormat;
 
 }
