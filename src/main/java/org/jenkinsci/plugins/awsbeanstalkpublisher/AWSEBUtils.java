@@ -31,7 +31,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 
 public class AWSEBUtils {
 
-    private final static Pattern ENV_NAME_REGEX = Pattern.compile("[a-zA-Z0-9][-a-zA-Z0-9]{2,21}[a-zA-Z0-9]");
+    private final static Pattern ENV_NAME_REGEX = Pattern.compile("([a-zA-Z0-9][-a-zA-Z0-9]{2,21}[a-zA-Z0-9]|\\$\\{.*\\})");
 
     private static final Logger logger = Logger.getLogger(AWSEBUtils.class.getName());
     

@@ -68,14 +68,9 @@ public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
         if (build.getResult().isWorseThan(Result.SUCCESS)) {
-            return true;
+            return false;
         }
-        try {
-
-            return true;
-        } catch (Exception exc) {
-            throw new RuntimeException(exc);
-        }
+        return AWSEBSetup.perform(build, launcher, listener, getExtensions());
     }
 
     public BuildStepMonitor getRequiredMonitorService() {

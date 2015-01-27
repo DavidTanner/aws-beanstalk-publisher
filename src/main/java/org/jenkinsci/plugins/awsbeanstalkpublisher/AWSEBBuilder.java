@@ -62,14 +62,7 @@ public class AWSEBBuilder extends AWSEBBuilderBackwardsCompatibility {
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
-        try {
-            for (AWSEBSetup eb : getExtensions()) {
-                eb.perform(build, launcher, listener);
-            }
-            return true;
-        } catch (Exception exc) {
-            throw new RuntimeException(exc);
-        }
+        return AWSEBSetup.perform(build, launcher, listener, getExtensions());
     }
 
     public BuildStepMonitor getRequiredMonitorService() {
