@@ -71,12 +71,12 @@ public class AWSEBEnvironmentUpdater {
     }
     
     public void updateEnvironments() {
-        DescribeEnvironmentsRequest request;
+        DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
+        request.setApplicationName(applicationName);
+        request.setIncludeDeleted(false);
+        
         if (environments != null && !environments.isEmpty()) {
-            request = new DescribeEnvironmentsRequest().withApplicationName(applicationName)
-                    .withEnvironmentNames(environments);
-        } else {
-            request = new DescribeEnvironmentsRequest().withApplicationName(applicationName);
+            request.setEnvironmentNames(environments);
         }
         try {
             updateEnvironments(request);
