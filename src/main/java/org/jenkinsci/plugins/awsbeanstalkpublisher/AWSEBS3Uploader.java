@@ -111,6 +111,7 @@ public class AWSEBS3Uploader {
         if (uploadFile) {
             s3.putObject(bucketName, objectKey, localArchive);
         }
+        localArchive.delete();
         createApplicationVersion(awseb);
     }
 
