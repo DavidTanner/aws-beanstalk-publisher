@@ -38,7 +38,7 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
                 if (credentials != null ){
                     credentialsName = credentials.getDisplayName();
                 }
-                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, credentialsName, 
+                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, "", credentialsName, 
                         applicationName, Joiner.on('\n').join(environments), 
                         versionLabelFormat, failOnError, s3Setup));
             }

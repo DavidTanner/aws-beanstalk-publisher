@@ -66,7 +66,7 @@ public class AWSEBS3Uploader {
     
 
     public AWSEBS3Uploader(AbstractBuild<?, ?> build, BuildListener listener, AWSEBElasticBeanstalkSetup envSetup, AWSEBS3Setup s3) {
-        this(build, listener, envSetup.getAwsRegion(), envSetup.getCredentials(), s3, envSetup.getApplicationName(), envSetup.getVersionLabelFormat());
+        this(build, listener, envSetup.getAwsRegion(build), envSetup.getCredentials(), s3, envSetup.getApplicationName(), envSetup.getVersionLabelFormat());
     }
 
 

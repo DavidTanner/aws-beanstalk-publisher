@@ -30,14 +30,22 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     private final String versionLabelFormat;
     private final Boolean failOnError;
     private final List<String> environments;
+    private final String awsRegionText;
     private List<AWSEBSetup> extensions;
     
     
     @DataBoundConstructor
-    public AWSEBElasticBeanstalkSetup(Regions awsRegion, String credentials, String applicationName, 
-            String environmentList, String versionLabelFormat, Boolean failOnError,
+    public AWSEBElasticBeanstalkSetup(
+            Regions awsRegion, 
+            String awsRegionText,
+            String credentials, 
+            String applicationName, 
+            String environmentList, 
+            String versionLabelFormat, 
+            Boolean failOnError,
             List<AWSEBSetup> extensions) {
         this.awsRegion = awsRegion;
+        this.awsRegionText = awsRegionText;
         this.credentials = AWSEBCredentials.getCredentialsByString(credentials);
         this.applicationName = applicationName;
         this.environments = new ArrayList<String>();
@@ -64,8 +72,13 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         return environments;
     }
 
-    public Regions getAwsRegion() {
-        return awsRegion == null ? Regions.US_WEST_1 : awsRegion;
+    public Regions getAwsRegion(AbstractBuild<?, ?> build) {
+        String regionName = AWSEBUtils.getValue(build, awsRegionText);
+        try {
+            return Regions.fromName(regionName);
+        } catch (IllegalArgumentException e) {
+            return awsRegion == null ? Regions.US_WEST_1 : awsRegion;    
+        }
     }
 
     public String getApplicationName() {

@@ -53,7 +53,7 @@ public class AWSEBEnvironmentUpdater {
         
 
         AWSCredentialsProvider provider = envSetup.getCredentials().getAwsCredentials();
-        Region region = Region.getRegion(envSetup.getAwsRegion());
+        Region region = Region.getRegion(envSetup.getAwsRegion(build));
         
         awseb = AWSEBUtils.getElasticBeanstalk(provider, region);
     }
@@ -93,7 +93,11 @@ public class AWSEBEnvironmentUpdater {
         if (envList.size() <= 0) {
             AWSEBUtils.log(log, "No environments found matching applicationName:%s with environments:%s", 
                     applicationName, environments);
-            listener.finished(Result.SUCCESS);
+            if (envSetup.getFailOnError()) {
+                listener.finished(Result.FAILURE);
+            } else {
+                listener.finished(Result.SUCCESS);
+            }
             return;
         }
 
