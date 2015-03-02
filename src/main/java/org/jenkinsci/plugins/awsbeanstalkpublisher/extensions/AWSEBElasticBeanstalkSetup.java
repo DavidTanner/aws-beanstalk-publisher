@@ -76,7 +76,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         String regionName = AWSEBUtils.getValue(build, awsRegionText);
         try {
             return Regions.fromName(regionName);
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             return awsRegion == null ? Regions.US_WEST_1 : awsRegion;    
         }
     }
