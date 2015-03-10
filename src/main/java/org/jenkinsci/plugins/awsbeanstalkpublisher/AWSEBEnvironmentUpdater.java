@@ -117,19 +117,20 @@ public class AWSEBEnvironmentUpdater {
 
     private void printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
         PrintStream log = listener.getLogger();
-        boolean hadFailures = false;
+        boolean allSuccess = true;
         for (Future<AWSEBEnvironmentUpdaterThread> future : results) {
             try {
                 AWSEBEnvironmentUpdaterThread result = future.get();
-                hadFailures |= result.isSuccessfull();
+                allSuccess &= result.isSuccessfull();
                 result.printResults();
             } catch (Exception e) {
                 AWSEBUtils.log(log, "Unable to get results from update");
                 e.printStackTrace(log);
             }
         }
-        if (failOnError && hadFailures) {
+        if (failOnError && !allSuccess) {
             listener.finished(Result.FAILURE);
+            build.setResult(Result.FAILURE);
         } else {
             listener.finished(Result.SUCCESS);
         }
