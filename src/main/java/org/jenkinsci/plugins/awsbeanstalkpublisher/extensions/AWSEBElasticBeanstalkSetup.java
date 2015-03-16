@@ -71,6 +71,10 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public List<String> getEnvironments() {
         return environments;
     }
+    
+    public String getAwsRegionText() {
+        return awsRegionText;
+    }
 
 
     public Regions getAwsRegion(AbstractBuild<?, ?> build) {
