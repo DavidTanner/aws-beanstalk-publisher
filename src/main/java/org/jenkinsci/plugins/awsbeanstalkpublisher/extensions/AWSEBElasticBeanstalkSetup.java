@@ -111,9 +111,9 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
 
 
     @Override
-    public void perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws Exception {
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws Exception {
         AWSEBEnvironmentUpdater updater = new AWSEBEnvironmentUpdater(build, launcher, listener, this);
-        updater.perform();
+        return updater.perform();
     }
     
     // Overridden for better type safety.

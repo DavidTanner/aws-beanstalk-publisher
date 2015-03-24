@@ -1,9 +1,6 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher.extensions;
 
 import hudson.Extension;
-import hudson.Launcher;
-import hudson.model.BuildListener;
-import hudson.model.AbstractBuild;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -91,11 +88,5 @@ public class AWSEBS3Setup extends AWSEBSetup {
             extensions.add(AWSEBS3Setup.getDesc());
             return extensions;
         }
-    }
-
-    @Override
-    public void perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)  throws Exception{
-        // TODO Auto-generated method stub
-        
     }
 }

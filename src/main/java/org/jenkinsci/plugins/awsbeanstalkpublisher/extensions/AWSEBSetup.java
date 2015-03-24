@@ -9,14 +9,17 @@ import hudson.model.AbstractBuild;
 
 public abstract class AWSEBSetup extends AbstractDescribableImpl<AWSEBSetup> {
 
-    public abstract void perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws Exception;
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws Exception{
+        return true;
+    }
 
     public static boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, List<AWSEBSetup> extensions){
+        boolean status = true;
         try {
             for (AWSEBSetup eb : extensions) {
-                eb.perform(build, launcher, listener);
+                status &= eb.perform(build, launcher, listener);
             }
-            return true;
+            return status;
         } catch (Exception exc) {
             throw new RuntimeException(exc);
         }

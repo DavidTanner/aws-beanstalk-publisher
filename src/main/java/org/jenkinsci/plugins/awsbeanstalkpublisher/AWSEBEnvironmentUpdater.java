@@ -58,7 +58,7 @@ public class AWSEBEnvironmentUpdater {
         awseb = AWSEBUtils.getElasticBeanstalk(provider, region);
     }
     
-    public void perform() throws Exception{
+    public boolean perform() throws Exception{
         for (AWSEBSetup extension : envSetup.getExtensions()) {
             if (extension instanceof AWSEBS3Setup){
                 AWSEBS3Setup s3 = (AWSEBS3Setup) extension;
@@ -67,10 +67,10 @@ public class AWSEBEnvironmentUpdater {
             }
         }
         
-        updateEnvironments();
+        return updateEnvironments();
     }
     
-    public void updateEnvironments() {
+    public boolean updateEnvironments() {
         DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
         request.setApplicationName(applicationName);
         request.setIncludeDeleted(false);
@@ -79,13 +79,14 @@ public class AWSEBEnvironmentUpdater {
             request.setEnvironmentNames(environments);
         }
         try {
-            updateEnvironments(request);
+            return updateEnvironments(request);
         } catch (Exception e) {
             e.printStackTrace(log);
+            return false;
         }
     }
 
-    public void updateEnvironments(DescribeEnvironmentsRequest request) throws InterruptedException {
+    public boolean updateEnvironments(DescribeEnvironmentsRequest request) throws InterruptedException {
         DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
 
         List<EnvironmentDescription> envList = result.getEnvironments();
@@ -95,10 +96,11 @@ public class AWSEBEnvironmentUpdater {
                     applicationName, environments);
             if (envSetup.getFailOnError()) {
                 listener.finished(Result.FAILURE);
+                return false;
             } else {
                 listener.finished(Result.SUCCESS);
+                return true;
             }
-            return;
         }
 
         ExecutorService pool = Executors.newFixedThreadPool(MAX_THREAD_COUNT);
@@ -112,10 +114,10 @@ public class AWSEBEnvironmentUpdater {
         }
         List<Future<AWSEBEnvironmentUpdaterThread>> results = pool.invokeAll(updaters);
 
-        printResults(listener, results);
+        return printResults(listener, results);
     }
 
-    private void printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
+    private boolean printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
         PrintStream log = listener.getLogger();
         boolean allSuccess = true;
         for (Future<AWSEBEnvironmentUpdaterThread> future : results) {
@@ -131,8 +133,10 @@ public class AWSEBEnvironmentUpdater {
         if (failOnError && !allSuccess) {
             listener.finished(Result.FAILURE);
             build.setResult(Result.FAILURE);
+            return false;
         } else {
             listener.finished(Result.SUCCESS);
+            return true;
         }
     }
 
