@@ -7,7 +7,7 @@
     </parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>aws-beanstalk-publisher-plugin</artifactId>
-    <version>0.1.7-SNAPSHOT</version>
+    <version>1.2-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <name>AWS Elastic Beanstalk Publisher Plugin</name>
     <url>https://wiki.jenkins-ci.org/display/JENKINS/AWS+Beanstalk+Publisher+Plugin</url>

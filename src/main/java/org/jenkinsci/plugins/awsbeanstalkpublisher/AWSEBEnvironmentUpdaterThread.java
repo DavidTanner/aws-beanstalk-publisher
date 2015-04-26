@@ -1,13 +1,18 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
 import java.io.PrintStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsRequest;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsResult;
+import com.amazonaws.services.elasticbeanstalk.model.DescribeEventsRequest;
+import com.amazonaws.services.elasticbeanstalk.model.DescribeEventsResult;
 import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
+import com.amazonaws.services.elasticbeanstalk.model.EventDescription;
 import com.amazonaws.services.elasticbeanstalk.model.UpdateEnvironmentRequest;
 
 public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentUpdaterThread> {
@@ -17,7 +22,8 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     
     private final EnvironmentDescription envd;
     private final AWSElasticBeanstalk awseb;
-    private final DescribeEnvironmentsRequest request;
+    private final DescribeEnvironmentsRequest envRequest;
+    private final DescribeEventsRequest eventRequest;
     private final String environmentId;
     private final PrintStream logger;
     private final String versionLabel;
@@ -27,12 +33,14 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     private boolean success = false;
     private int nAttempt;
 
-    public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, DescribeEnvironmentsRequest request, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
+    public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
         this.awseb = awseb;
         this.envd = envd;
         this.logger = logger;
         this.versionLabel = versionLabel;
-        this.request = request;
+        envRequest = new DescribeEnvironmentsRequest().withEnvironmentIds(envd.getEnvironmentId());
+        eventRequest = new DescribeEventsRequest().withEnvironmentId(envd.getEnvironmentId());
+        
         this.environmentId = envd.getEnvironmentId();
         nAttempt = 0;
 
@@ -43,16 +51,20 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     }
 
     private void updateEnv() {
-
+        lastEventDate = new Date();
+        
         log("'%s': Attempt %d/%d", envd.getEnvironmentName(), nAttempt, MAX_ATTEMPTS);
-
+        
+        
         UpdateEnvironmentRequest uavReq = new UpdateEnvironmentRequest().withEnvironmentId(environmentId).withVersionLabel(versionLabel);
         nAttempt = 0;
         isUpdated = true;
+        
 
         try {
             awseb.updateEnvironment(uavReq);
             isReady();
+            
         } catch (Exception e) {
             log("'%s': Problem:", envd.getEnvironmentName());
             e.printStackTrace(logger);
@@ -64,12 +76,32 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
 
         }
     }
+    
+    private Date lastEventDate;
 
     private void isReady() {
         try {
-            DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
-            EnvironmentDescription lastEnv = null;
             String envName = envd.getEnvironmentName();
+            
+            try {
+                DescribeEventsResult eventResult = awseb.describeEvents(eventRequest);
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss zZ");
+                
+                for (EventDescription event : eventResult.getEvents()) {
+                    Date eventDate = event.getEventDate();
+                    if (eventDate.after(lastEventDate)){
+                        lastEventDate = eventDate;
+                        // 2015-04-13 20:12:44 UTC-0600
+                        String eventDateString = dateFormat.format(eventDate);
+                        log("'%s' event: [%s] (%s) %s", envName, eventDateString, event.getSeverity(), event.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log("'%s': Unable to process events %s", envName, e.getMessage());
+            }
+
+            DescribeEnvironmentsResult result = awseb.describeEnvironments(envRequest);
+            EnvironmentDescription lastEnv = null;
             for (EnvironmentDescription env : result.getEnvironments()) {
                 if (env.getEnvironmentId().equals(envd.getEnvironmentId())){
                     lastEnv = env;

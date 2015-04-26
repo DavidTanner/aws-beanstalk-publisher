@@ -53,12 +53,12 @@ public class AWSEBEnvironmentUpdater {
         
 
         AWSCredentialsProvider provider = envSetup.getCredentials().getAwsCredentials();
-        Region region = Region.getRegion(envSetup.getAwsRegion());
+        Region region = Region.getRegion(envSetup.getAwsRegion(build));
         
         awseb = AWSEBUtils.getElasticBeanstalk(provider, region);
     }
     
-    public void perform() throws Exception{
+    public boolean perform() throws Exception{
         for (AWSEBSetup extension : envSetup.getExtensions()) {
             if (extension instanceof AWSEBS3Setup){
                 AWSEBS3Setup s3 = (AWSEBS3Setup) extension;
@@ -67,25 +67,26 @@ public class AWSEBEnvironmentUpdater {
             }
         }
         
-        updateEnvironments();
+        return updateEnvironments();
     }
     
-    public void updateEnvironments() {
-        DescribeEnvironmentsRequest request;
+    public boolean updateEnvironments() {
+        DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
+        request.setApplicationName(applicationName);
+        request.setIncludeDeleted(false);
+        
         if (environments != null && !environments.isEmpty()) {
-            request = new DescribeEnvironmentsRequest().withApplicationName(applicationName)
-                    .withEnvironmentNames(environments);
-        } else {
-            request = new DescribeEnvironmentsRequest().withApplicationName(applicationName);
+            request.setEnvironmentNames(environments);
         }
         try {
-            updateEnvironments(request);
+            return updateEnvironments(request);
         } catch (Exception e) {
             e.printStackTrace(log);
+            return false;
         }
     }
 
-    public void updateEnvironments(DescribeEnvironmentsRequest request) throws InterruptedException {
+    public boolean updateEnvironments(DescribeEnvironmentsRequest request) throws InterruptedException {
         DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
 
         List<EnvironmentDescription> envList = result.getEnvironments();
@@ -93,8 +94,13 @@ public class AWSEBEnvironmentUpdater {
         if (envList.size() <= 0) {
             AWSEBUtils.log(log, "No environments found matching applicationName:%s with environments:%s", 
                     applicationName, environments);
-            listener.finished(Result.SUCCESS);
-            return;
+            if (envSetup.getFailOnError()) {
+                listener.finished(Result.FAILURE);
+                return false;
+            } else {
+                listener.finished(Result.SUCCESS);
+                return true;
+            }
         }
 
         ExecutorService pool = Executors.newFixedThreadPool(MAX_THREAD_COUNT);
@@ -104,30 +110,33 @@ public class AWSEBEnvironmentUpdater {
             AWSEBUtils.log(log, "Environment found (environment id='%s', name='%s'). "
                     + "Attempting to update environment to version label '%s'", 
                     envd.getEnvironmentId(), envd.getEnvironmentName(), versionLabel);
-            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, request, envd, log, versionLabel));
+            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, envd, log, versionLabel));
         }
         List<Future<AWSEBEnvironmentUpdaterThread>> results = pool.invokeAll(updaters);
 
-        printResults(listener, results);
+        return printResults(listener, results);
     }
 
-    private void printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
+    private boolean printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
         PrintStream log = listener.getLogger();
-        boolean hadFailures = false;
+        boolean allSuccess = true;
         for (Future<AWSEBEnvironmentUpdaterThread> future : results) {
             try {
                 AWSEBEnvironmentUpdaterThread result = future.get();
-                hadFailures |= result.isSuccessfull();
+                allSuccess &= result.isSuccessfull();
                 result.printResults();
             } catch (Exception e) {
                 AWSEBUtils.log(log, "Unable to get results from update");
                 e.printStackTrace(log);
             }
         }
-        if (failOnError && hadFailures) {
+        if (failOnError && !allSuccess) {
             listener.finished(Result.FAILURE);
+            build.setResult(Result.FAILURE);
+            return false;
         } else {
             listener.finished(Result.SUCCESS);
+            return true;
         }
     }
 

@@ -37,7 +37,7 @@ public abstract class AWSEBPublisherBackwardsCompatibility  extends Recorder {
                 if (credentials != null ){
                     credentialsName = credentials.getDisplayName();
                 }
-                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, credentialsName, 
+                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, "", credentialsName, 
                         applicationName, Joiner.on('\n').join(environments), 
                         versionLabelFormat, failOnError, s3Setup));
             }
