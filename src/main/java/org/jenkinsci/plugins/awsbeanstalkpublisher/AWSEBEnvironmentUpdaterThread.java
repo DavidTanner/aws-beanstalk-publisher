@@ -17,7 +17,6 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     
     private final EnvironmentDescription envd;
     private final AWSElasticBeanstalk awseb;
-    private final DescribeEnvironmentsRequest request;
     private final String environmentId;
     private final PrintStream logger;
     private final String versionLabel;
@@ -27,12 +26,11 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     private boolean success = false;
     private int nAttempt;
 
-    public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, DescribeEnvironmentsRequest request, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
+    public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
         this.awseb = awseb;
         this.envd = envd;
         this.logger = logger;
         this.versionLabel = versionLabel;
-        this.request = request;
         this.environmentId = envd.getEnvironmentId();
         nAttempt = 0;
 
@@ -67,6 +65,10 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
 
     private void isReady() {
         try {
+            DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
+            request.withApplicationName(envd.getApplicationName());
+            request.withEnvironmentNames(envd.getEnvironmentName());
+            
             DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
             EnvironmentDescription lastEnv = null;
             String envName = envd.getEnvironmentName();

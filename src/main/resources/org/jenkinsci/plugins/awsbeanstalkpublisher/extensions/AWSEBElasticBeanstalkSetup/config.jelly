@@ -21,10 +21,6 @@
    title="${%Get Available Applications}" progress="${%Loading...}"
    method="loadApplications" with="credentials,awsRegion" />
   
-  <f:entry title="Environments" field="environmentList">
-    <f:textarea />
-  </f:entry>
-  
   <f:validateButton
    title="${%Get Available Environments}" progress="${%Loading...}"
    method="loadEnvironments" with="credentials,awsRegion,applicationName" />
@@ -37,7 +33,7 @@
     <f:checkbox />
   </f:entry>
   
-  <f:entry title="${%Deploy to S3}">
+  <f:entry title="${%Additional Behaviors}">
     <!-- TODO: switch to <f:repeatableHeteroList field="extensions"> -->
     <f:hetero-list name="extensions" oneEach="true" items="${instance.extensions}" descriptors="${descriptor.getExtensionDescriptors()}"
                    hasHeader="true" />

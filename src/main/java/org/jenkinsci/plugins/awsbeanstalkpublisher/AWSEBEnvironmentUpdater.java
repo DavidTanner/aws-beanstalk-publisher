@@ -15,12 +15,11 @@ import java.util.concurrent.Future;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetup;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBElasticBeanstalkSetup;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBS3Setup;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.envlookup.EnvLookup;
 
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
-import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsRequest;
-import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsResult;
 import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
 
 public class AWSEBEnvironmentUpdater {
@@ -32,7 +31,6 @@ public class AWSEBEnvironmentUpdater {
     private final PrintStream log;
     private final AWSEBElasticBeanstalkSetup envSetup;
     
-    private final List<String> environments;
     private final String applicationName;
     private final String versionLabel;
     private final AWSElasticBeanstalk awseb;
@@ -46,7 +44,6 @@ public class AWSEBEnvironmentUpdater {
         this.log = listener.getLogger();
         this.envSetup = envSetup;
         
-        environments = AWSEBUtils.getValue(build, envSetup.getEnvironments());
         applicationName = AWSEBUtils.getValue(build, envSetup.getApplicationName());
         versionLabel = AWSEBUtils.getValue(build, envSetup.getVersionLabelFormat());
         failOnError = envSetup.getFailOnError();
@@ -70,30 +67,20 @@ public class AWSEBEnvironmentUpdater {
         return updateEnvironments();
     }
     
-    public boolean updateEnvironments() {
-        DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
-        request.setApplicationName(applicationName);
-        request.setIncludeDeleted(false);
+
+    public boolean updateEnvironments() throws InterruptedException {
+        List<EnvironmentDescription> envList = new ArrayList<EnvironmentDescription>(10); 
         
-        if (environments != null && !environments.isEmpty()) {
-            request.setEnvironmentNames(environments);
+        for (AWSEBSetup extension : envSetup.getExtensions()) {
+            if (extension instanceof EnvLookup){
+                EnvLookup envLookup = (EnvLookup) extension;
+                envList.addAll(envLookup.getEnvironments(build, awseb, applicationName));
+            }
         }
-        try {
-            return updateEnvironments(request);
-        } catch (Exception e) {
-            e.printStackTrace(log);
-            return false;
-        }
-    }
-
-    public boolean updateEnvironments(DescribeEnvironmentsRequest request) throws InterruptedException {
-        DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
-
-        List<EnvironmentDescription> envList = result.getEnvironments();
-
+        
         if (envList.size() <= 0) {
-            AWSEBUtils.log(log, "No environments found matching applicationName:%s with environments:%s", 
-                    applicationName, environments);
+            AWSEBUtils.log(log, "No environments found matching applicationName:%s", 
+                    applicationName);
             if (envSetup.getFailOnError()) {
                 listener.finished(Result.FAILURE);
                 return false;
@@ -110,7 +97,7 @@ public class AWSEBEnvironmentUpdater {
             AWSEBUtils.log(log, "Environment found (environment id='%s', name='%s'). "
                     + "Attempting to update environment to version label '%s'", 
                     envd.getEnvironmentId(), envd.getEnvironmentName(), versionLabel);
-            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, request, envd, log, versionLabel));
+            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, envd, log, versionLabel));
         }
         List<Future<AWSEBEnvironmentUpdaterThread>> results = pool.invokeAll(updaters);
 
