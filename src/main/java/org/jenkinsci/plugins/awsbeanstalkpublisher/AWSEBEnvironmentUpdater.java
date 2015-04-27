@@ -110,7 +110,7 @@ public class AWSEBEnvironmentUpdater {
             AWSEBUtils.log(log, "Environment found (environment id='%s', name='%s'). "
                     + "Attempting to update environment to version label '%s'", 
                     envd.getEnvironmentId(), envd.getEnvironmentName(), versionLabel);
-            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, request, envd, log, versionLabel));
+            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, envd, log, versionLabel));
         }
         List<Future<AWSEBEnvironmentUpdaterThread>> results = pool.invokeAll(updaters);
 
