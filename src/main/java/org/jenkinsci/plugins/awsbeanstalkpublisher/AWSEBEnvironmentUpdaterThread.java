@@ -2,7 +2,9 @@ package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
 import java.io.PrintStream;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -16,7 +18,7 @@ import com.amazonaws.services.elasticbeanstalk.model.EventDescription;
 import com.amazonaws.services.elasticbeanstalk.model.UpdateEnvironmentRequest;
 
 public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentUpdaterThread> {
-    private static final int MAX_ATTEMPTS = 15;
+    private static final int MAX_ATTEMPTS = 5;
     private static final int WAIT_TIME_SECONDS = 30;
     private static final long WAIT_TIME_MILLISECONDS = TimeUnit.SECONDS.toMillis(WAIT_TIME_SECONDS);
     
@@ -32,14 +34,19 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     private boolean isComplete = false;
     private boolean success = false;
     private int nAttempt;
+    private Date lastEventDate;
 
     public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
         this.awseb = awseb;
         this.envd = envd;
         this.logger = logger;
         this.versionLabel = versionLabel;
+        this.lastEventDate = new Date();
+        
+        // We can make our requests and, hopefully, safely assume the environmentId won't change under us.
         envRequest = new DescribeEnvironmentsRequest().withEnvironmentIds(envd.getEnvironmentId());
         eventRequest = new DescribeEventsRequest().withEnvironmentId(envd.getEnvironmentId());
+        eventRequest.withStartTime(lastEventDate); // Initialize to the right start time.
         
         this.environmentId = envd.getEnvironmentId();
         nAttempt = 0;
@@ -51,25 +58,26 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     }
 
     private void updateEnv() {
-        lastEventDate = new Date();
         
         log("'%s': Attempt %d/%d", envd.getEnvironmentName(), nAttempt, MAX_ATTEMPTS);
         
         
         UpdateEnvironmentRequest uavReq = new UpdateEnvironmentRequest().withEnvironmentId(environmentId).withVersionLabel(versionLabel);
-        nAttempt = 0;
         isUpdated = true;
         
 
         try {
             awseb.updateEnvironment(uavReq);
             isReady();
-            
+            nAttempt = 0;
         } catch (Exception e) {
             log("'%s': Problem:", envd.getEnvironmentName());
             e.printStackTrace(logger);
+            if (e.getMessage().contains("No Application Version named")) {
+                isComplete = true;
+            }
 
-            if (nAttempt >= MAX_ATTEMPTS) {
+            if (nAttempt++ > MAX_ATTEMPTS) {
                 log("'%s': Unable to update environment!", envd.getEnvironmentName());
                 isComplete = true;
             }
@@ -77,24 +85,31 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
         }
     }
     
-    private Date lastEventDate;
 
     private void isReady() {
         try {
             String envName = envd.getEnvironmentName();
             
             try {
+                // Using start time so we only get logs after the last event.
+                eventRequest.withStartTime(lastEventDate);
                 DescribeEventsResult eventResult = awseb.describeEvents(eventRequest);
                 SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss zZ");
                 
-                for (EventDescription event : eventResult.getEvents()) {
+                List<EventDescription> events = eventResult.getEvents();
+                
+                // Reverse the logs so we print them in order of earliest to latest, following jenkins logs.
+                Collections.reverse(events);
+                
+                // Set the last event date, and add one millisecond so we don't get repeat logs.
+                lastEventDate.setTime(events.get(0).getEventDate().getTime() + 1);
+                
+                
+                for (EventDescription event : events) {
                     Date eventDate = event.getEventDate();
-                    if (eventDate.after(lastEventDate)){
-                        lastEventDate = eventDate;
-                        // 2015-04-13 20:12:44 UTC-0600
-                        String eventDateString = dateFormat.format(eventDate);
-                        log("'%s' event: [%s] (%s) %s", envName, eventDateString, event.getSeverity(), event.getMessage());
-                    }
+                    // 2015-04-13 20:12:44 UTC-0600
+                    String eventDateString = dateFormat.format(eventDate);
+                    log("'%s': EVENT [%s] (%s) %s", envName, eventDateString, event.getSeverity(), event.getMessage());
                 }
             } catch (Exception e) {
                 log("'%s': Unable to process events %s", envName, e.getMessage());
@@ -133,7 +148,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
 
             log("Problem: " + e.getMessage());
 
-            if (nAttempt >= MAX_ATTEMPTS) {
+            if (nAttempt++ > MAX_ATTEMPTS) {
                 log("'%s': unable to get environment status.", envd.getEnvironmentName());
                 isComplete = true;
             }
