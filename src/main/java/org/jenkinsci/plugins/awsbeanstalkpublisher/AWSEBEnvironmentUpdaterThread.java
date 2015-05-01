@@ -34,19 +34,30 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     private boolean isComplete = false;
     private boolean success = false;
     private int nAttempt;
-    private Date lastEventDate;
+    private EventDescription lastEvent;
 
     public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
         this.awseb = awseb;
         this.envd = envd;
         this.logger = logger;
         this.versionLabel = versionLabel;
-        this.lastEventDate = new Date();
+        this.lastEvent = new EventDescription();
+        lastEvent.setEventDate(new Date());
         
         // We can make our requests and, hopefully, safely assume the environmentId won't change under us.
         envRequest = new DescribeEnvironmentsRequest().withEnvironmentIds(envd.getEnvironmentId());
         eventRequest = new DescribeEventsRequest().withEnvironmentId(envd.getEnvironmentId());
-        eventRequest.withStartTime(lastEventDate); // Initialize to the right start time.
+        
+        // Hack to acknowledge that the time of the Jenkins box may not match AWS.
+        try {
+            DescribeEventsResult lastEntry = awseb.describeEvents(new DescribeEventsRequest()
+                                                                        .withEnvironmentId(envd.getEnvironmentId())
+                                                                        .withMaxRecords(1));
+            lastEvent = lastEntry.getEvents().get(0);
+        } catch (Exception e) {
+            log("'%s': Unable to get last event, using system current timestamp for event logs", envd.getEnvironmentName());
+        }
+        eventRequest.withStartTime(lastEvent.getEventDate()); // Initialize to the right start time.
         
         this.environmentId = envd.getEnvironmentId();
         nAttempt = 0;
@@ -85,6 +96,14 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
         }
     }
     
+    private boolean compareEventDescriptions(EventDescription first, EventDescription second) {
+        boolean isEqual = first.getApplicationName().equals(second.getApplicationName());
+        isEqual &= first.getEnvironmentName().equals(second.getEnvironmentName());
+        isEqual &= first.getMessage().equals(second.getMessage());
+        isEqual &= first.getSeverity().equals(second.getSeverity());
+        isEqual &= first.getEventDate().getTime() == second.getEventDate().getTime();
+        return isEqual;
+    }
 
     private void isReady() {
         try {
@@ -92,7 +111,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
             
             try {
                 // Using start time so we only get logs after the last event.
-                eventRequest.withStartTime(lastEventDate);
+                eventRequest.withStartTime(lastEvent.getEventDate());
                 DescribeEventsResult eventResult = awseb.describeEvents(eventRequest);
                 SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss zZ");
                 
@@ -101,8 +120,13 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
                 // Reverse the logs so we print them in order of earliest to latest, following jenkins logs.
                 Collections.reverse(events);
                 
-                // Set the last event date, and add one millisecond so we don't get repeat logs.
-                lastEventDate.setTime(events.get(0).getEventDate().getTime() + 1);
+                // Remove last event so we don't get duplicates, hopefully.
+                if (compareEventDescriptions(lastEvent, events.get(0))) {
+                    events.remove(0);
+                }
+                
+                // Set the last event date.
+                lastEvent = events.get(0);
                 
                 
                 for (EventDescription event : events) {
