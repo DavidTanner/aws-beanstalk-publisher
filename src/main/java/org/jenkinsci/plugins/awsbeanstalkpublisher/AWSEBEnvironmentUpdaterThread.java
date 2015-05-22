@@ -24,6 +24,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     
     private final EnvironmentDescription envd;
     private final AWSElasticBeanstalk awseb;
+    private final DescribeEnvironmentsRequest envRequest;
     private final DescribeEventsRequest eventRequest;
     private final String environmentId;
     private final PrintStream logger;
@@ -44,6 +45,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
         lastEvent.setEventDate(new Date());
         
         // We can make our requests and, hopefully, safely assume the environmentId won't change under us.
+        envRequest = new DescribeEnvironmentsRequest().withEnvironmentIds(envd.getEnvironmentId());
         eventRequest = new DescribeEventsRequest().withEnvironmentId(envd.getEnvironmentId());
         
         // Hack to acknowledge that the time of the Jenkins box may not match AWS.
@@ -105,10 +107,6 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
 
     private void isReady() {
         try {
-            DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
-            request.withApplicationName(envd.getApplicationName());
-            request.withEnvironmentNames(envd.getEnvironmentName());
-
             String envName = envd.getEnvironmentName();
             
             try {
@@ -141,9 +139,8 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
                 log("'%s': Unable to process events %s", envName, e.getMessage());
             }
 
-            DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
+            DescribeEnvironmentsResult result = awseb.describeEnvironments(envRequest);
             EnvironmentDescription lastEnv = null;
-            
             for (EnvironmentDescription env : result.getEnvironments()) {
                 if (env.getEnvironmentId().equals(envd.getEnvironmentId())){
                     lastEnv = env;
