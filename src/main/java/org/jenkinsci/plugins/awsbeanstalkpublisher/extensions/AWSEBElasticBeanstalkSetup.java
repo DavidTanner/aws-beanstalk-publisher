@@ -24,7 +24,6 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import com.amazonaws.regions.Regions;
-import com.google.common.base.Joiner;
 
 public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
 
@@ -43,10 +42,19 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     private final String awsRegionText;
 
     private DescribableList<AWSEBSetup, AWSEBSetupDescriptor> extensions;
+    private DescribableList<AWSEBSetup, AWSEBSetupDescriptor> envLookup;
 
     @DataBoundConstructor
-    public AWSEBElasticBeanstalkSetup(Regions awsRegion, String awsRegionText, String credentials, String applicationName, String environmentList, String versionLabelFormat, Boolean failOnError,
-            List<AWSEBSetup> extensions) {
+    public AWSEBElasticBeanstalkSetup(
+            Regions awsRegion, 
+            String awsRegionText, 
+            String credentials, 
+            String applicationName, 
+            String versionLabelFormat, 
+            Boolean failOnError,
+            List<AWSEBSetup> extensions,
+            List<AWSEBSetup> envLookup) {
+        
         this.awsRegion = awsRegion;
         this.awsRegionText = awsRegionText;
         this.credentials = AWSEBCredentials.getCredentialsByString(credentials);
@@ -55,6 +63,11 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         this.versionLabelFormat = versionLabelFormat;
         this.failOnError = failOnError;
         this.extensions = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(extensions));
+        
+        this.envLookup = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(envLookup));
+        if (this.envLookup.size() == 0){
+            this.envLookup.add(new ByName(""));
+        }
     }
 
     public DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getExtensions() {
@@ -64,18 +77,14 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         return extensions;
     }
 
-    public String getEnvironmentList() {
-        return Joiner.on("\n").join(environments);
-    }
-
     public Object readResolve() {
         if (environments != null && !environments.isEmpty()) {
-           try {
-            addIfMissing(new ByName(Arrays.toString(environments.toArray(new String[]{}))));
-            environments = null;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            try {
+                addIfMissing(new ByName(Arrays.toString(environments.toArray(new String[] {}))));
+                environments = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
         return this;
     }
@@ -180,27 +189,23 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             return FormValidation.ok(AWSEBUtils.getApplicationListAsString(credentials, region));
         }
 
-        public FormValidation doLoadEnvironments(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString,
-                @QueryParameter("applicationName") String appName) {
-            AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
-            if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
-            }
-            Regions region = Enum.valueOf(Regions.class, regionString);
-            if (region == null) {
-                return FormValidation.error("Missing valid Region");
-            }
-
-            if (appName == null) {
-                return FormValidation.error("Missing an application name");
-            }
-
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
-        }
-
         public List<AWSEBSetupDescriptor> getExtensionDescriptors() {
             List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
             extensions.add(AWSEBS3Setup.getDesc());
+            return extensions;
+        }
+        
+        public List<AWSEBSetup> getEnvLookup(List<AWSEBSetup> envLookup) {
+            if (envLookup != null && envLookup.size() > 0) {
+                return envLookup;
+            }
+            List<AWSEBSetup> lookup = new ArrayList<AWSEBSetup>(1);
+            lookup.add(new ByName(""));
+            return lookup;
+        }
+        
+        public List<AWSEBSetupDescriptor> getEnvironmentLookupDescriptors() {
+            List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
             extensions.add(new ByName.DescriptorImpl());
             extensions.add(new ByUrl.DescriptorImpl());
             return extensions;

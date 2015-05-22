@@ -18,13 +18,16 @@
     <f:textbox />
   </f:entry>
   <f:validateButton
-   title="${%Get Available Applications}" progress="${%Loading...}"
-   method="loadApplications" with="credentials,awsRegion" />
+    title="${%Get Available Applications}" progress="${%Loading...}"
+    method="loadApplications" with="credentials,awsRegion" />
   
-  <f:validateButton
-   title="${%Get Available Environments}" progress="${%Loading...}"
-   method="loadEnvironments" with="credentials,awsRegion,applicationName" />
-  
+  <f:entry title="${%EnvironmentLookup}">
+    <f:hetero-list name="envLookup" oneEach="true" 
+      items="${descriptor.getEnvLookup(instance.envLookup)}" 
+      descriptors="${descriptor.getEnvironmentLookupDescriptors()}"
+      hasHeader="true" />
+  </f:entry>
+    
   <f:entry title="Version Label Format" field="versionLabelFormat">
     <f:textbox />
   </f:entry>
@@ -34,9 +37,10 @@
   </f:entry>
   
   <f:entry title="${%Additional Behaviors}">
-    <!-- TODO: switch to <f:repeatableHeteroList field="extensions"> -->
-    <f:hetero-list name="extensions" oneEach="true" items="${instance.extensions}" descriptors="${descriptor.getExtensionDescriptors()}"
-                   hasHeader="true" />
+    <f:hetero-list name="extensions" oneEach="true" 
+      items="${instance.extensions}" 
+      descriptors="${descriptor.getExtensionDescriptors()}"
+      hasHeader="true" />
   </f:entry>
 
 </j:jelly>
