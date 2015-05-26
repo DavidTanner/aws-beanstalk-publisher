@@ -41,6 +41,10 @@ After adding the Access Key ID and Secret Key in to the Jenkins master configura
 
 ### Updates
 
+#### -> 1.4
+* Changed the environment lookup to be an extension.
+* Added a way to look up environments inside an application by url, eg. some-env.elasticbeanstalk.com
+
 #### -> 1.3
 * Fixed logic for printing log statements.
 * Fixed issue where failed updates would never actually give up.
