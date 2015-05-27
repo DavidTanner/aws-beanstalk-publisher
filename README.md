@@ -41,6 +41,9 @@ After adding the Access Key ID and Secret Key in to the Jenkins master configura
 
 ### Updates
 
+#### -> 1.4.1
+* Remove env lookups from the additional behaviors.
+
 #### -> 1.4
 * Changed the environment lookup to be an extension.
 * Added a way to look up environments inside an application by url, eg. some-env.elasticbeanstalk.com

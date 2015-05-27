@@ -206,8 +206,6 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         
         public List<AWSEBSetupDescriptor> getEnvironmentLookupDescriptors() {
             List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
-            extensions.add(new ByName.DescriptorImpl());
-            extensions.add(new ByUrl.DescriptorImpl());
             return extensions;
         }
     }
