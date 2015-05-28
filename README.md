@@ -41,6 +41,20 @@ After adding the Access Key ID and Secret Key in to the Jenkins master configura
 
 ### Updates
 
+#### -> 1.4.1
+* Remove env lookups from the additional behaviors.
+
+#### -> 1.4
+* Changed the environment lookup to be an extension.
+* Added a way to look up environments inside an application by url, eg. some-env.elasticbeanstalk.com
+
+#### -> 1.3
+* Fixed logic for printing log statements.
+* Fixed issue where failed updates would never actually give up.
+
+#### -> 1.2
+* Added a print statement for events returned from AWS : BROKEN don't use
+
 #### -> 1.0
 * Multithreading the update environment process, in case there are multiple environments to be updated.
 * Added test buttons to see which applications your credentials can see, both in the global and job config.

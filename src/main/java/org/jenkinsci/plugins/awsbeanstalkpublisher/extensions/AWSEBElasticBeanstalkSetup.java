@@ -2,22 +2,26 @@ package org.jenkinsci.plugins.awsbeanstalkpublisher.extensions;
 
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.Util;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
+import hudson.model.Saveable;
+import hudson.util.DescribableList;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBCredentials;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBEnvironmentUpdater;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBUtils;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.envlookup.ByName;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import com.amazonaws.regions.Regions;
-import com.google.common.base.Joiner;
 
 public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
 
@@ -29,39 +33,86 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     private final String applicationName;
     private final String versionLabelFormat;
     private final Boolean failOnError;
-    private final List<String> environments;
-    private List<AWSEBSetup> extensions;
-    
-    
+
+    @Deprecated
+    private transient List<String> environments;
+
+    private final String awsRegionText;
+
+    private DescribableList<AWSEBSetup, AWSEBSetupDescriptor> extensions;
+    private DescribableList<AWSEBSetup, AWSEBSetupDescriptor> envLookup;
+
     @DataBoundConstructor
-    public AWSEBElasticBeanstalkSetup(Regions awsRegion, String credentials, String applicationName, 
-            String environmentList, String versionLabelFormat, Boolean failOnError,
-            List<AWSEBSetup> extensions) {
+    public AWSEBElasticBeanstalkSetup(
+            Regions awsRegion, 
+            String awsRegionText, 
+            String credentials, 
+            String applicationName, 
+            String versionLabelFormat, 
+            Boolean failOnError,
+            List<AWSEBSetup> extensions,
+            List<AWSEBSetup> envLookup) {
+        
         this.awsRegion = awsRegion;
+        this.awsRegionText = awsRegionText;
         this.credentials = AWSEBCredentials.getCredentialsByString(credentials);
         this.applicationName = applicationName;
-        this.environments = new ArrayList<String>();
-        for (String next : environmentList.split("\n")) {
-            this.environments.add(next);
-        }
+
         this.versionLabelFormat = versionLabelFormat;
         this.failOnError = failOnError;
-        this.extensions = extensions;
+        this.extensions = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(extensions));
+        
+        this.envLookup = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(envLookup));
+        if (this.envLookup.size() == 0){
+            this.envLookup.add(new ByName(""));
+        }
     }
 
-    
-    
-    public List<AWSEBSetup> getExtensions() {
-        return extensions == null ? new ArrayList<AWSEBSetup>(0) : extensions;
+    public DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getExtensions() {
+        if (extensions == null) {
+            extensions = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(extensions));
+        }
+        return extensions;
     }
 
-    public String getEnvironmentList() {
-        return Joiner.on("\n").join(environments);
+    public DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getEnvLookup() {
+        if (envLookup == null) {
+            envLookup = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(envLookup));
+        }
+        return envLookup;
     }
     
+    public Object readResolve() {
+        if (environments != null && !environments.isEmpty()) {
+            addEnvIfMissing(new ByName(StringUtils.join(environments, '\n')));
+            environments = null;
+        }
+        return this;
+    }
+    
+    protected void addEnvIfMissing(AWSEBSetup ext) {
+        if (getEnvLookup().get(ext.getClass()) == null) {
+            getEnvLookup().add(ext);
+        }
+    }
 
-    public List<String> getEnvironments() {
-        return environments;
+    protected void addIfMissing(AWSEBSetup ext) {
+        if (getExtensions().get(ext.getClass()) == null) {
+            getExtensions().add(ext);
+        }
+    }
+
+    public String getAwsRegionText() {
+        return awsRegionText;
+    }
+
+    public Regions getAwsRegion(AbstractBuild<?, ?> build) {
+        String regionName = AWSEBUtils.getValue(build, awsRegionText);
+        try {
+            return Regions.fromName(regionName);
+        } catch (Exception e) {
+            return getAwsRegion();
+        }
     }
 
     public Regions getAwsRegion() {
@@ -75,24 +126,21 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public String getVersionLabelFormat() {
         return versionLabelFormat == null ? "" : versionLabelFormat;
     }
-    
 
     public Boolean getFailOnError() {
         return failOnError == null ? false : failOnError;
     }
-    
+
     public AWSEBCredentials getCredentials() {
         return credentials;
     }
-    
-
 
     @Override
-    public void perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws Exception {
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws Exception {
         AWSEBEnvironmentUpdater updater = new AWSEBEnvironmentUpdater(build, launcher, listener, this);
-        updater.perform();
+        return updater.perform();
     }
-    
+
     // Overridden for better type safety.
     // If your plugin doesn't really define any property on Descriptor,
     // you don't have to do this.
@@ -100,19 +148,17 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public DescriptorImpl getDescriptor() {
         return DESCRIPTOR;
     }
-    
+
     public static DescriptorImpl getDesc() {
         return DESCRIPTOR;
     }
-    
-    
+
     @Extension
     public static class DescriptorImpl extends AWSEBSetupDescriptor {
         @Override
         public String getDisplayName() {
             return "Elastic Beanstalk Application";
         }
-        
 
         public ListBoxModel doFillCredentialsItems(@QueryParameter String credentials) {
             ListBoxModel items = new ListBoxModel();
@@ -120,8 +166,8 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
 
                 items.add(creds, creds.toString());
                 if (creds.toString().equals(credentials)) {
-                    items.get(items.size()-1).selected = true;
-                } 
+                    items.get(items.size() - 1).selected = true;
+                }
             }
 
             return items;
@@ -134,7 +180,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             } else {
                 return FormValidation.ok();
             }
-            
+
         }
 
         public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {
@@ -146,35 +192,29 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             if (region == null) {
                 return FormValidation.error("Missing valid Region");
             }
-            
+
             return FormValidation.ok(AWSEBUtils.getApplicationListAsString(credentials, region));
         }
-        
-        public FormValidation doLoadEnvironments(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString, @QueryParameter("applicationName") String appName) {
-            AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
-            if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
-            }
-            Regions region = Enum.valueOf(Regions.class, regionString);
-            if (region == null) {
-                return FormValidation.error("Missing valid Region");
-            }
-            
-            if (appName == null) {
-                return FormValidation.error("Missing an application name");
-            }
-            
-           
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
-        }
-        
 
         public List<AWSEBSetupDescriptor> getExtensionDescriptors() {
             List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
             extensions.add(AWSEBS3Setup.getDesc());
             return extensions;
         }
+        
+        public List<AWSEBSetup> getEnvLookup(List<AWSEBSetup> envLookup) {
+            if (envLookup != null && envLookup.size() > 0) {
+                return envLookup;
+            }
+            List<AWSEBSetup> lookup = new ArrayList<AWSEBSetup>(1);
+            lookup.add(new ByName(""));
+            return lookup;
+        }
+        
+        public List<AWSEBSetupDescriptor> getEnvironmentLookupDescriptors() {
+            List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
+            return extensions;
+        }
     }
-
 
 }
