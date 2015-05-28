@@ -10,16 +10,14 @@ import hudson.util.DescribableList;
 import hudson.util.FormValidation;
 import hudson.util.ListBoxModel;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBCredentials;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBEnvironmentUpdater;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBUtils;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.envlookup.ByName;
-import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.envlookup.ByUrl;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -77,19 +75,28 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         return extensions;
     }
 
+    public DescribableList<AWSEBSetup, AWSEBSetupDescriptor> getEnvLookup() {
+        if (envLookup == null) {
+            envLookup = new DescribableList<AWSEBSetup, AWSEBSetupDescriptor>(Saveable.NOOP, Util.fixNull(envLookup));
+        }
+        return envLookup;
+    }
+    
     public Object readResolve() {
         if (environments != null && !environments.isEmpty()) {
-            try {
-                addIfMissing(new ByName(Arrays.toString(environments.toArray(new String[] {}))));
-                environments = null;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            addEnvIfMissing(new ByName(StringUtils.join(environments, '\n')));
+            environments = null;
         }
         return this;
     }
+    
+    protected void addEnvIfMissing(AWSEBSetup ext) {
+        if (getEnvLookup().get(ext.getClass()) == null) {
+            getEnvLookup().add(ext);
+        }
+    }
 
-    protected void addIfMissing(AWSEBSetup ext) throws IOException {
+    protected void addIfMissing(AWSEBSetup ext) {
         if (getExtensions().get(ext.getClass()) == null) {
             getExtensions().add(ext);
         }
