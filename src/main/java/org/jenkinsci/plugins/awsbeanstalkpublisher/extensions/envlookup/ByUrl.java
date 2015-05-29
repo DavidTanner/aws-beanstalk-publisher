@@ -42,8 +42,8 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
     @Override
     public List<EnvironmentDescription> getEnvironments(AbstractBuild<?, ?> build, AWSElasticBeanstalk awseb, String applicationName) {
         DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
-        request.setApplicationName(applicationName);
-        request.setIncludeDeleted(false);
+        request.withApplicationName(applicationName);
+        request.withIncludeDeleted(false);
 
         DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
 
@@ -57,7 +57,7 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
 
         for (EnvironmentDescription environment : result.getEnvironments()) {
             String envUrl = environment.getCNAME();
-            if (urlList.contains(envUrl)) {
+            if (resolvedUrls.contains(envUrl)) {
                 environments.add(environment);
             }
         }

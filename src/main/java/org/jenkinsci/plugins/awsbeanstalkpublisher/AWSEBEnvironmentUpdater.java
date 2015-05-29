@@ -71,7 +71,7 @@ public class AWSEBEnvironmentUpdater {
     public boolean updateEnvironments() throws InterruptedException {
         List<EnvironmentDescription> envList = new ArrayList<EnvironmentDescription>(10); 
         
-        for (AWSEBSetup extension : envSetup.getExtensions()) {
+        for (AWSEBSetup extension : envSetup.getEnvLookup()) {
             if (extension instanceof EnvLookup){
                 EnvLookup envLookup = (EnvLookup) extension;
                 envList.addAll(envLookup.getEnvironments(build, awseb, applicationName));

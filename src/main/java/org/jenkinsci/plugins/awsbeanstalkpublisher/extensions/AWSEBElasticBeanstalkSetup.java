@@ -18,6 +18,7 @@ import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBCredentials;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBEnvironmentUpdater;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBUtils;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.envlookup.ByName;
+import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.envlookup.ByUrl;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
@@ -212,8 +213,10 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         }
         
         public List<AWSEBSetupDescriptor> getEnvironmentLookupDescriptors() {
-            List<AWSEBSetupDescriptor> extensions = new ArrayList<AWSEBSetupDescriptor>(1);
-            return extensions;
+            List<AWSEBSetupDescriptor> envLookup = new ArrayList<AWSEBSetupDescriptor>(3);
+            envLookup.add(new ByName.DescriptorImpl());
+            envLookup.add(new ByUrl.DescriptorImpl());
+            return envLookup;
         }
     }
 
