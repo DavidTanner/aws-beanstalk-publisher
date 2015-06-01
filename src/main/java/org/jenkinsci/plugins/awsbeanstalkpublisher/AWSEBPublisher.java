@@ -96,11 +96,6 @@ public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
 
         private Set<AWSEBCredentials> credentials;
-        private final Regions awsRegion = Regions.DEFAULT_REGION;
-        
-        public Regions getAwsRegion() {
-            return awsRegion;
-        }
 
         @SuppressWarnings("rawtypes")
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
@@ -133,7 +128,8 @@ public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
-            AWSEBCredentials.configureCredentials(req.bindParametersToList(AWSEBCredentials.class, "credential."));
+            
+            AWSEBCredentials.configureCredentials(req.bindJSONToList(AWSEBCredentials.class, json.get("credentials")));
             credentials = AWSEBCredentials.getCredentials();
             save();
             return super.configure(req, json);
@@ -143,58 +139,6 @@ public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
             return credentials;
         }
         
-        public FormValidation doLoadApplicationsGlobal(@QueryParameter("credential.awsAccessKeyId") String accessKey, @QueryParameter("credential.awsSecretSharedKey") String secretKey, @QueryParameter("awsRegion") String regionString) {
-            if (accessKey == null || secretKey == null) {
-                return FormValidation.error("Access key and Secret key cannot be empty");
-            }
-            AWSEBCredentials credentials = new AWSEBCredentials("", accessKey, secretKey);
-            Regions region = Enum.valueOf(Regions.class, regionString);
-            if (region == null) {
-                return FormValidation.error("Missing valid Region");
-            }
-            
-            List<ApplicationDescription> apps = AWSEBUtils.getApplications(credentials.getAwsCredentials(), region);
-            
-            
-            StringBuilder sb = new StringBuilder();
-            for (ApplicationDescription app : apps) {
-                sb.append(app.getApplicationName());
-                sb.append("\n");
-            }
-            return FormValidation.ok(sb.toString());
-        }
-        
-        public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {
-            AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
-            if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
-            }
-            Regions region = Enum.valueOf(Regions.class, regionString);
-            if (region == null) {
-                return FormValidation.error("Missing valid Region");
-            }
-            
-            return FormValidation.ok(AWSEBUtils.getApplicationListAsString(credentials, region));
-        }
-        
-        public FormValidation doLoadEnvironments(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString, @QueryParameter("applicationName") String appName) {
-            AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
-            if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
-            }
-            Regions region = Enum.valueOf(Regions.class, regionString);
-            if (region == null) {
-                return FormValidation.error("Missing valid Region");
-            }
-            
-            if (appName == null) {
-                return FormValidation.error("Missing an application name");
-            }
-            
-           
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
-        }
-
     }
 
 }

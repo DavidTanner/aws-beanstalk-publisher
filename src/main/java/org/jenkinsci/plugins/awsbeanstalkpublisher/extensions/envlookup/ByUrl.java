@@ -30,7 +30,7 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
         this.urlList = new ArrayList<String>();
         if (!StringUtils.isEmpty(urlList)) {
             for (String next : urlList.split("\n")) {
-                this.urlList.add(next);
+                this.urlList.add(next.trim());
             }
         }
     }
@@ -88,7 +88,18 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
                 return FormValidation.error("Missing an application name");
             }
 
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
+            return FormValidation.ok(getEnvironmentCnamesListAsString(credentials, region, appName));
+        }
+        
+
+        public static String getEnvironmentCnamesListAsString(AWSEBCredentials credentials, Regions region, String appName) {
+            List<EnvironmentDescription> environments = AWSEBUtils.getEnvironments(credentials.getAwsCredentials(), region, appName);
+            StringBuilder sb = new StringBuilder();
+            for (EnvironmentDescription env : environments) {
+                sb.append(env.getCNAME());
+                sb.append("\n");
+            }
+            return sb.toString();
         }
 
     }

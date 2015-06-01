@@ -77,7 +77,18 @@ public class ByName extends AWSEBSetup implements EnvLookup {
                 return FormValidation.error("Missing an application name");
             }
 
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
+            return FormValidation.ok(getEnvironmentsListAsString(credentials, region, appName));
+        }
+        
+
+        private String getEnvironmentsListAsString(AWSEBCredentials credentials, Regions region, String appName) {
+            List<EnvironmentDescription> environments = AWSEBUtils.getEnvironments(credentials.getAwsCredentials(), region, appName);
+            StringBuilder sb = new StringBuilder();
+            for (EnvironmentDescription env : environments) {
+                sb.append(env.getEnvironmentName());
+                sb.append("\n");
+            }
+            return sb.toString();
         }
     }
 
