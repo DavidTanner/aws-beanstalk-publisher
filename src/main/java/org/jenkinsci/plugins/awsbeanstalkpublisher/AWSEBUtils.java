@@ -65,15 +65,6 @@ public class AWSEBUtils {
         return StringUtils.strip(str, "/ ");
     }
     
-    public static String getEnvironmentsListAsString(AWSEBCredentials credentials, Regions region, String appName) {
-        List<EnvironmentDescription> environments = getEnvironments(credentials.getAwsCredentials(), region, appName);
-        StringBuilder sb = new StringBuilder();
-        for (EnvironmentDescription env : environments) {
-            sb.append(env.getEnvironmentName());
-            sb.append("\n");
-        }
-        return sb.toString();
-    }
     
     public static String getApplicationListAsString(AWSEBCredentials credentials, Regions region) {
         List<ApplicationDescription> apps = getApplications(credentials.getAwsCredentials(), region);

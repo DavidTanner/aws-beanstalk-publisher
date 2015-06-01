@@ -29,7 +29,7 @@ public class ByName extends AWSEBSetup implements EnvLookup {
         this.envNameList = new ArrayList<String>();
         if (!StringUtils.isEmpty(envNameList)) {
             for (String next : envNameList.split("\n")) {
-                this.envNameList.add(next);
+                this.envNameList.add(next.trim());
             }
         }
     }
@@ -41,10 +41,15 @@ public class ByName extends AWSEBSetup implements EnvLookup {
     @Override
     public List<EnvironmentDescription> getEnvironments(AbstractBuild<?, ?> build, AWSElasticBeanstalk awseb, String applicationName) {
         DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
-        request.setApplicationName(applicationName);
-        request.setIncludeDeleted(false);
+        request.withApplicationName(applicationName);
+        request.withIncludeDeleted(false);
+        
+        List<String> escaped = new ArrayList<String>(envNameList.size());
+        for (String env : envNameList) {
+            escaped.add(AWSEBUtils.replaceMacros(build, env));
+        }
 
-        request.setEnvironmentNames(envNameList);
+        request.withEnvironmentNames(escaped);
 
         return awseb.describeEnvironments(request).getEnvironments();
     }
@@ -72,7 +77,18 @@ public class ByName extends AWSEBSetup implements EnvLookup {
                 return FormValidation.error("Missing an application name");
             }
 
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
+            return FormValidation.ok(getEnvironmentsListAsString(credentials, region, appName));
+        }
+        
+
+        private String getEnvironmentsListAsString(AWSEBCredentials credentials, Regions region, String appName) {
+            List<EnvironmentDescription> environments = AWSEBUtils.getEnvironments(credentials.getAwsCredentials(), region, appName);
+            StringBuilder sb = new StringBuilder();
+            for (EnvironmentDescription env : environments) {
+                sb.append(env.getEnvironmentName());
+                sb.append("\n");
+            }
+            return sb.toString();
         }
     }
 

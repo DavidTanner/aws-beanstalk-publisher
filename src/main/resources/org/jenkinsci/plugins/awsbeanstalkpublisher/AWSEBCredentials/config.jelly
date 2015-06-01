@@ -1,0 +1,28 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <f:entry title="Name" field="name">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="AWS Access Key Id" field="awsAccessKeyId">
+    <f:textbox/>
+  </f:entry>
+
+  <f:entry title="AWS Secret Shared Key" field="awsSecretSharedKey">
+    <f:password/>
+  </f:entry>
+
+  <f:advanced>
+    <f:entry title="AWS Region" field="awsRegion">
+      <f:enum field="awsRegion">${it.name}</f:enum>
+    </f:entry>
+  
+    <f:validateButton 
+        title="${%Get Available Applications}" progress="${%Loading...}"
+        method="loadApplications" 
+        with="awsAccessKeyId,awsSecretSharedKey,awsRegion" />
+  </f:advanced>
+  <f:entry title=""> 
+    <div align="right"> <f:repeatableDeleteButton /> </div>
+  </f:entry>
+  
+</j:jelly>

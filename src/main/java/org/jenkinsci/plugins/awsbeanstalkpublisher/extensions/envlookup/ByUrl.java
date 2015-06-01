@@ -30,7 +30,7 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
         this.urlList = new ArrayList<String>();
         if (!StringUtils.isEmpty(urlList)) {
             for (String next : urlList.split("\n")) {
-                this.urlList.add(next);
+                this.urlList.add(next.trim());
             }
         }
     }
@@ -42,8 +42,8 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
     @Override
     public List<EnvironmentDescription> getEnvironments(AbstractBuild<?, ?> build, AWSElasticBeanstalk awseb, String applicationName) {
         DescribeEnvironmentsRequest request = new DescribeEnvironmentsRequest();
-        request.setApplicationName(applicationName);
-        request.setIncludeDeleted(false);
+        request.withApplicationName(applicationName);
+        request.withIncludeDeleted(false);
 
         DescribeEnvironmentsResult result = awseb.describeEnvironments(request);
 
@@ -57,7 +57,7 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
 
         for (EnvironmentDescription environment : result.getEnvironments()) {
             String envUrl = environment.getCNAME();
-            if (urlList.contains(envUrl)) {
+            if (resolvedUrls.contains(envUrl)) {
                 environments.add(environment);
             }
         }
@@ -88,7 +88,18 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
                 return FormValidation.error("Missing an application name");
             }
 
-            return FormValidation.ok(AWSEBUtils.getEnvironmentsListAsString(credentials, region, appName));
+            return FormValidation.ok(getEnvironmentCnamesListAsString(credentials, region, appName));
+        }
+        
+
+        public static String getEnvironmentCnamesListAsString(AWSEBCredentials credentials, Regions region, String appName) {
+            List<EnvironmentDescription> environments = AWSEBUtils.getEnvironments(credentials.getAwsCredentials(), region, appName);
+            StringBuilder sb = new StringBuilder();
+            for (EnvironmentDescription env : environments) {
+                sb.append(env.getCNAME());
+                sb.append("\n");
+            }
+            return sb.toString();
         }
 
     }
