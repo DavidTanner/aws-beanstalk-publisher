@@ -10,7 +10,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBElasticBeanstalkSetup;
@@ -34,12 +33,12 @@ public class AWSEBS3Uploader {
     private final String excludes;
     private final String rootObject;
     private final boolean isOverwriteExistingFile;
-    private final PrintStream log;
     
     private final String applicationName;
     private final String versionLabel;
     private final Regions awsRegion;
     private final AbstractBuild<?, ?> build;
+    private final BuildListener listener;
     private final AWSEBCredentials credentials;
     
 
@@ -53,20 +52,20 @@ public class AWSEBS3Uploader {
         this.credentials = credentials;
         this.build = build;
         this.awsRegion = awsRegion;
-        this.log = listener.getLogger();
-        this.applicationName = AWSEBUtils.getValue(build, applicationName);
-        this.versionLabel = AWSEBUtils.getValue(build, versionLabel);
-        this.keyPrefix = AWSEBUtils.getValue(build, s3Setup.getKeyPrefix());
-        this.bucketName = AWSEBUtils.getValue(build, s3Setup.getBucketName());
-        this.includes = AWSEBUtils.getValue(build, s3Setup.getIncludes());
-        this.excludes = AWSEBUtils.getValue(build, s3Setup.getExcludes());
-        this.rootObject = AWSEBUtils.getValue(build, s3Setup.getRootObject());
+        this.listener = listener;
+        this.applicationName = AWSEBUtils.getValue(build, listener, applicationName);
+        this.versionLabel = AWSEBUtils.getValue(build, listener, versionLabel);
+        this.keyPrefix = AWSEBUtils.getValue(build, listener, s3Setup.getKeyPrefix());
+        this.bucketName = AWSEBUtils.getValue(build, listener, s3Setup.getBucketName());
+        this.includes = AWSEBUtils.getValue(build, listener, s3Setup.getIncludes());
+        this.excludes = AWSEBUtils.getValue(build, listener, s3Setup.getExcludes());
+        this.rootObject = AWSEBUtils.getValue(build, listener, s3Setup.getRootObject());
         this.isOverwriteExistingFile = s3Setup.isOverwriteExistingFile();
     }
     
 
     public AWSEBS3Uploader(AbstractBuild<?, ?> build, BuildListener listener, AWSEBElasticBeanstalkSetup envSetup, AWSEBS3Setup s3) {
-        this(build, listener, envSetup.getAwsRegion(build), envSetup.getCredentials(), s3, envSetup.getApplicationName(), envSetup.getVersionLabelFormat());
+        this(build, listener, envSetup.getAwsRegion(build, listener), envSetup.getActualcredentials(build, listener), s3, envSetup.getApplicationName(), envSetup.getVersionLabelFormat());
     }
 
 
@@ -78,10 +77,10 @@ public class AWSEBS3Uploader {
         objectKey = AWSEBUtils.formatPath("%s/%s-%s.zip", keyPrefix, applicationName, versionLabel);
 
         s3ObjectPath = "s3://" + AWSEBUtils.formatPath("%s/%s", bucketName, objectKey);
-        FilePath rootFileObject = new FilePath(build.getWorkspace(), AWSEBUtils.getValue(build, rootObject));
+        FilePath rootFileObject = new FilePath(build.getWorkspace(), AWSEBUtils.getValue(build, listener, rootObject));
         File localArchive = getLocalFileObject(rootFileObject);
 
-        AWSEBUtils.log(log, "Uploading file %s as %s", localArchive.getName(), s3ObjectPath);
+        AWSEBUtils.log(listener, "Uploading file %s as %s", localArchive.getName(), s3ObjectPath);
 
         boolean uploadFile = true;
 
@@ -103,9 +102,9 @@ public class AWSEBS3Uploader {
                 throw s3e;
             }
         } catch (FileNotFoundException e) {
-            e.printStackTrace(log);
+            e.printStackTrace(listener.getLogger());
         } catch (IOException e) {
-            e.printStackTrace(log);
+            e.printStackTrace(listener.getLogger());
         }
 
         if (uploadFile) {
@@ -124,11 +123,11 @@ public class AWSEBS3Uploader {
         File resultFile = File.createTempFile("awseb-", ".zip");
 
         if (!rootFileObject.isDirectory()) {
-            AWSEBUtils.log(log, "Root File Object is a file. We assume its a zip file, which is okay.");
+            AWSEBUtils.log(listener, "Root File Object is a file. We assume its a zip file, which is okay.");
 
             rootFileObject.copyTo(new FileOutputStream(resultFile));
         } else {
-            AWSEBUtils.log(log, "Zipping contents of Root File Object (%s) into tmp file %s (includes=%s, excludes=%s)", rootFileObject.getName(), resultFile.getName(), includes, excludes);
+            AWSEBUtils.log(listener, "Zipping contents of Root File Object (%s) into tmp file %s (includes=%s, excludes=%s)", rootFileObject.getName(), resultFile.getName(), includes, excludes);
 
             rootFileObject.zip(new FileOutputStream(resultFile), new DirScanner.Glob(includes, excludes));
         }
@@ -137,7 +136,7 @@ public class AWSEBS3Uploader {
     }
     
     public void createApplicationVersion(AWSElasticBeanstalk awseb) {
-        AWSEBUtils.log(log, "Creating application version %s for application %s for path %s", versionLabel, applicationName, s3ObjectPath);
+        AWSEBUtils.log(listener, "Creating application version %s for application %s for path %s", versionLabel, applicationName, s3ObjectPath);
 
         CreateApplicationVersionRequest cavRequest = new CreateApplicationVersionRequest().withApplicationName(applicationName).withAutoCreateApplication(true)
                 .withSourceBundle(new S3Location(bucketName, objectKey)).withVersionLabel(versionLabel);

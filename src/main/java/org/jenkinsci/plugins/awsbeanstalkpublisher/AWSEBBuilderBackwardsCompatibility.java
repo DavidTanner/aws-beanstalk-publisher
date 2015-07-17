@@ -42,7 +42,7 @@ public abstract class AWSEBBuilderBackwardsCompatibility extends Builder impleme
                 List<AWSEBSetup> envLookup = new ArrayList<AWSEBSetup>(2);
                 ByName byName = new ByName(StringUtils.join(environments, '\n'));
                 envLookup.add(byName);
-                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, "", credentialsName, 
+                addIfMissing(new AWSEBElasticBeanstalkSetup(awsRegion, "", credentialsName, "", 
                         applicationName, 
                         versionLabelFormat, failOnError, s3Setup, envLookup));
             }

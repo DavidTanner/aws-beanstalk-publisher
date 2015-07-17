@@ -28,7 +28,6 @@ public class AWSEBEnvironmentUpdater {
     
     private final AbstractBuild<?, ?> build;
     private final BuildListener listener;
-    private final PrintStream log;
     private final AWSEBElasticBeanstalkSetup envSetup;
     
     private final String applicationName;
@@ -41,16 +40,15 @@ public class AWSEBEnvironmentUpdater {
             BuildListener listener, AWSEBElasticBeanstalkSetup envSetup){
         this.build = build;
         this.listener = listener;
-        this.log = listener.getLogger();
         this.envSetup = envSetup;
         
-        applicationName = AWSEBUtils.getValue(build, envSetup.getApplicationName());
-        versionLabel = AWSEBUtils.getValue(build, envSetup.getVersionLabelFormat());
+        applicationName = AWSEBUtils.getValue(build, listener,envSetup.getApplicationName());
+        versionLabel = AWSEBUtils.getValue(build, listener,envSetup.getVersionLabelFormat());
         failOnError = envSetup.getFailOnError();
         
 
-        AWSCredentialsProvider provider = envSetup.getCredentials().getAwsCredentials();
-        Region region = Region.getRegion(envSetup.getAwsRegion(build));
+        AWSCredentialsProvider provider = envSetup.getActualcredentials(build, listener).getAwsCredentials();
+        Region region = Region.getRegion(envSetup.getAwsRegion(build, listener));
         
         awseb = AWSEBUtils.getElasticBeanstalk(provider, region);
     }
@@ -74,12 +72,12 @@ public class AWSEBEnvironmentUpdater {
         for (AWSEBSetup extension : envSetup.getEnvLookup()) {
             if (extension instanceof EnvLookup){
                 EnvLookup envLookup = (EnvLookup) extension;
-                envList.addAll(envLookup.getEnvironments(build, awseb, applicationName));
+                envList.addAll(envLookup.getEnvironments(build, listener, awseb, applicationName));
             }
         }
         
         if (envList.size() <= 0) {
-            AWSEBUtils.log(log, "No environments found matching applicationName:%s", 
+            AWSEBUtils.log(listener, "No environments found matching applicationName:%s", 
                     applicationName);
             if (envSetup.getFailOnError()) {
                 listener.finished(Result.FAILURE);
@@ -94,17 +92,17 @@ public class AWSEBEnvironmentUpdater {
 
         List<AWSEBEnvironmentUpdaterThread> updaters = new ArrayList<AWSEBEnvironmentUpdaterThread>();
         for (EnvironmentDescription envd : envList) {
-            AWSEBUtils.log(log, "Environment found (environment id='%s', name='%s'). "
+            AWSEBUtils.log(listener, "Environment found (environment id='%s', name='%s'). "
                     + "Attempting to update environment to version label '%s'", 
                     envd.getEnvironmentId(), envd.getEnvironmentName(), versionLabel);
-            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, envd, log, versionLabel));
+            updaters.add(new AWSEBEnvironmentUpdaterThread(awseb, envd, listener, versionLabel));
         }
         List<Future<AWSEBEnvironmentUpdaterThread>> results = pool.invokeAll(updaters);
 
-        return printResults(listener, results);
+        return printResults(results);
     }
 
-    private boolean printResults(BuildListener listener, List<Future<AWSEBEnvironmentUpdaterThread>> results) {
+    private boolean printResults(List<Future<AWSEBEnvironmentUpdaterThread>> results) {
         PrintStream log = listener.getLogger();
         boolean allSuccess = true;
         for (Future<AWSEBEnvironmentUpdaterThread> future : results) {
@@ -113,7 +111,7 @@ public class AWSEBEnvironmentUpdater {
                 allSuccess &= result.isSuccessfull();
                 result.printResults();
             } catch (Exception e) {
-                AWSEBUtils.log(log, "Unable to get results from update");
+                AWSEBUtils.log(listener, "Unable to get results from update");
                 e.printStackTrace(log);
             }
         }
