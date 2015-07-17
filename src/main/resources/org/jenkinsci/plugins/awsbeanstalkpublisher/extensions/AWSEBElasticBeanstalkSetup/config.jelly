@@ -1,9 +1,16 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 
-  <f:entry title="AWS credentials" field="credentials">
+  <f:entry title="AWS Credentials" field="credentials">
     <f:select />
   </f:entry>
     
+  <f:entry title="AWS Credentials lookup by name" field="credentialsText">
+    <f:textbox />
+  </f:entry>
+  <f:validateButton
+    title="${%Get Credentials Names}" progress="${%Loading...}"
+    method="lookupAvailableCredentials" />
+  
   <f:entry title="AWS Region" field="awsRegion">
     <f:enum field="awsRegion">
         ${it.getName()}
