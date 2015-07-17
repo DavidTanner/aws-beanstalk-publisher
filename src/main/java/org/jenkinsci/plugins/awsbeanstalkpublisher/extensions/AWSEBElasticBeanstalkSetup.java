@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.tools.ant.util.CollectionUtils;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBCredentials;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBEnvironmentUpdater;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.AWSEBUtils;
@@ -30,6 +31,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
     private final AWSEBCredentials credentials;
+    private final String credentialsText;
     private final Regions awsRegion;
     private final String applicationName;
     private final String versionLabelFormat;
@@ -47,7 +49,8 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public AWSEBElasticBeanstalkSetup(
             Regions awsRegion, 
             String awsRegionText, 
-            String credentials, 
+            String credentials,
+            String credentialsText,
             String applicationName, 
             String versionLabelFormat, 
             Boolean failOnError,
@@ -57,6 +60,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         this.awsRegion = awsRegion;
         this.awsRegionText = awsRegionText;
         this.credentials = AWSEBCredentials.getCredentialsByString(credentials);
+        this.credentialsText = credentialsText;
         this.applicationName = applicationName;
 
         this.versionLabelFormat = versionLabelFormat;
@@ -107,8 +111,8 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         return awsRegionText;
     }
 
-    public Regions getAwsRegion(AbstractBuild<?, ?> build) {
-        String regionName = AWSEBUtils.getValue(build, awsRegionText);
+    public Regions getAwsRegion(AbstractBuild<?, ?> build, BuildListener listener) {
+        String regionName = AWSEBUtils.getValue(build, listener, awsRegionText);
         try {
             return Regions.fromName(regionName);
         } catch (Exception e) {
@@ -133,6 +137,25 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     }
 
     public AWSEBCredentials getCredentials() {
+        return credentials;
+    }
+    
+    public String getCredentialsText() {
+        return credentialsText;
+    }
+    
+    public AWSEBCredentials getActualcredentials(AbstractBuild<?, ?> build, BuildListener listener) {
+        if (!StringUtils.isEmpty(credentialsText)) {
+            String resolvedText = AWSEBUtils.replaceMacros(build, listener, credentialsText);
+            AWSEBCredentials creds = AWSEBCredentials.getCredentialsByString(resolvedText);
+            if (creds != null) {
+                return creds;
+            }
+        }
+        
+        if (credentials != null) {
+            throw new NullPointerException("No credentials provided for build!!!");
+        }
         return credentials;
     }
 
@@ -182,6 +205,14 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
                 return FormValidation.ok();
             }
 
+        }
+        
+        public FormValidation doLookupAvailableCredentials() {
+            List<String> creds = new ArrayList<String>(10);
+            for (AWSEBCredentials next : AWSEBCredentials.getCredentials()) {
+                creds.add(next.toString());
+            }
+            return FormValidation.ok(CollectionUtils.flattenToString(creds));
         }
 
         public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {

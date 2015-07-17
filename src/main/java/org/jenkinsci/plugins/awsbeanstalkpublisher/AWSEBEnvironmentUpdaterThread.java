@@ -1,6 +1,7 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
-import java.io.PrintStream;
+import hudson.model.BuildListener;
+
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
@@ -27,7 +28,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     private final DescribeEnvironmentsRequest envRequest;
     private final DescribeEventsRequest eventRequest;
     private final String environmentId;
-    private final PrintStream logger;
+    private final BuildListener listener;
     private final String versionLabel;
 
     private boolean isUpdated = false;
@@ -36,10 +37,10 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     private int nAttempt;
     private EventDescription lastEvent;
 
-    public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, EnvironmentDescription envd, PrintStream logger, String versionLabel) {
+    public AWSEBEnvironmentUpdaterThread(AWSElasticBeanstalk awseb, EnvironmentDescription envd, BuildListener listener, String versionLabel) {
         this.awseb = awseb;
         this.envd = envd;
-        this.logger = logger;
+        this.listener = listener;
         this.versionLabel = versionLabel;
         this.lastEvent = new EventDescription();
         lastEvent.setEventDate(new Date());
@@ -65,7 +66,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
     }
 
     private void log(String mask, Object... args) {
-        logger.println(String.format(mask, args));
+        listener.getLogger().println(String.format(mask, args));
     }
 
     private void updateEnv() {
@@ -83,7 +84,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
             nAttempt = 0;
         } catch (Exception e) {
             log("'%s': Problem:", envd.getEnvironmentName());
-            e.printStackTrace(logger);
+            e.printStackTrace(listener.getLogger());
             if (e.getMessage().contains("No Application Version named")) {
                 isComplete = true;
             }
@@ -218,7 +219,7 @@ public class AWSEBEnvironmentUpdaterThread implements Callable<AWSEBEnvironmentU
                     log("'%s': Pausing update for %d seconds", envd.getEnvironmentName(), WAIT_TIME_SECONDS);
                     Thread.sleep(WAIT_TIME_MILLISECONDS);
                 } catch (InterruptedException e) {
-                    e.printStackTrace(logger);
+                    e.printStackTrace(listener.getLogger());
                 }
             }
         }
