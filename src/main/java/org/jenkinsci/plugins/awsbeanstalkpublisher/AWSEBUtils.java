@@ -1,10 +1,9 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
 import hudson.Util;
+import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
-import hudson.util.LogTaskListener;
 
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,11 +38,11 @@ public class AWSEBUtils {
         return strip(String.format(mask, args).replaceAll("/{2,}", ""));
     }
 
-    public static List<String> getValue(AbstractBuild<?, ?> build, List<String> values) {
+    public static List<String> getValue(AbstractBuild<?, ?> build, BuildListener listener, List<String> values) {
         List<String> newValues = new ArrayList<String>(values.size());
         for (String value : values) {
             if (!value.isEmpty()) {
-                newValues.add(getValue(build, value));
+                newValues.add(getValue(build, listener, value));
             }
         }
         return newValues;
@@ -57,8 +56,8 @@ public class AWSEBUtils {
         return s3;
     }
     
-    public static String getValue(AbstractBuild<?, ?> build, String value) {
-        return strip(replaceMacros(build, value));
+    public static String getValue(AbstractBuild<?, ?> build, BuildListener listener, String value) {
+        return strip(replaceMacros(build, listener, value));
     }
 
     public static String strip(String str) {
@@ -110,7 +109,7 @@ public class AWSEBUtils {
         return result.getEnvironments();
     }
 
-    public static String replaceMacros(AbstractBuild<?, ?> build, String inputString) {
+    public static String replaceMacros(AbstractBuild<?, ?> build, BuildListener listener, String inputString) {
         String returnString = inputString;
         if (build != null && inputString != null) {
             try {
@@ -118,7 +117,7 @@ public class AWSEBUtils {
 
                 messageEnvVars.putAll(build.getCharacteristicEnvVars());
                 messageEnvVars.putAll(build.getBuildVariables());
-                messageEnvVars.putAll(build.getEnvironment(new LogTaskListener(logger, Level.INFO)));
+                messageEnvVars.putAll(build.getEnvironment(listener));
 
                 returnString = Util.replaceMacro(inputString, messageEnvVars);
 
@@ -142,8 +141,8 @@ public class AWSEBUtils {
     }
     
 
-    public static void log(PrintStream log, String mask, Object... args) {
-        log.println(String.format(mask, args));
+    public static void log(BuildListener listener, String mask, Object... args) {
+        listener.getLogger().println(String.format(mask, args));
     }
 
 }
