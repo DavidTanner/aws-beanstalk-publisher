@@ -153,7 +153,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             }
         }
         
-        if (credentials != null) {
+        if (credentials == null) {
             throw new NullPointerException("No credentials provided for build!!!");
         }
         return credentials;
