@@ -47,7 +47,12 @@ public class AWSEBEnvironmentUpdater {
         failOnError = envSetup.getFailOnError();
         
 
-        AWSCredentialsProvider provider = envSetup.getActualcredentials(build, listener).getAwsCredentials();
+        AWSEBCredentials credentials = envSetup.getActualcredentials(build, listener);
+        AWSCredentialsProvider provider = null;
+        if (credentials != null) {
+            provider = envSetup.getActualcredentials(build, listener).getAwsCredentials();
+        }
+        
         Region region = Region.getRegion(envSetup.getAwsRegion(build, listener));
         
         awseb = AWSEBUtils.getElasticBeanstalk(provider, region);
