@@ -66,8 +66,11 @@ public class AWSEBUtils {
     
     
     public static String getApplicationListAsString(AWSEBCredentials credentials, Regions region) {
-        List<ApplicationDescription> apps = getApplications(credentials.getAwsCredentials(), region);
-        
+        AWSCredentialsProvider awsCredentials = null;
+        if (credentials != null) {
+            awsCredentials = credentials.getAwsCredentials();
+        }
+        List<ApplicationDescription> apps = getApplications(awsCredentials, region);
         
         StringBuilder sb = new StringBuilder();
         for (ApplicationDescription app : apps) {

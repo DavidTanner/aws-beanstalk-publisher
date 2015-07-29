@@ -16,6 +16,7 @@ import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetupDescript
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
+import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.elasticbeanstalk.AWSElasticBeanstalk;
 import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsRequest;
@@ -74,15 +75,22 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
         }
         
 
-        public FormValidation doLoadEnvironments(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString,
+        public FormValidation doLoadEnvironments(
+                @QueryParameter("credentialsString") String credentialsString, 
+                @QueryParameter("credentialsText") String credentialsText, 
+                @QueryParameter("awsRegion") String awsRegion, 
+                @QueryParameter("awsRegionText") String awsRegionText,
                 @QueryParameter("applicationName") String appName) {
             AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
             if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
+                credentials = AWSEBCredentials.getCredentialsByString(credentialsText);
             }
-            Regions region = Enum.valueOf(Regions.class, regionString);
+            Regions region = Enum.valueOf(Regions.class, awsRegion);
             if (region == null) {
-                return FormValidation.error("Missing valid Region");
+                region = Enum.valueOf(Regions.class, awsRegionText);
+                if (region == null) {
+                    return FormValidation.error("Missing valid Region");
+                }
             }
 
             if (appName == null) {
@@ -94,7 +102,11 @@ public class ByUrl extends AWSEBSetup implements EnvLookup {
         
 
         public static String getEnvironmentCnamesListAsString(AWSEBCredentials credentials, Regions region, String appName) {
-            List<EnvironmentDescription> environments = AWSEBUtils.getEnvironments(credentials.getAwsCredentials(), region, appName);
+            AWSCredentialsProvider awsCredentials = null;
+            if (credentials != null) {
+                awsCredentials = credentials.getAwsCredentials();
+            }
+            List<EnvironmentDescription> environments = AWSEBUtils.getEnvironments(awsCredentials, region, appName);
             StringBuilder sb = new StringBuilder();
             for (EnvironmentDescription env : environments) {
                 sb.append(env.getCNAME());
