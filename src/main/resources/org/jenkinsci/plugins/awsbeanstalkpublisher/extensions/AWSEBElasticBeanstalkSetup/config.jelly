@@ -26,7 +26,7 @@
   </f:entry>
   <f:validateButton
     title="${%Get Available Applications}" progress="${%Loading...}"
-    method="loadApplications" with="credentials,awsRegion" />
+    method="loadApplications" with="credentialsString,credentialsText,awsRegion,awsRegionText" />
   
   <f:entry title="${%EnvironmentLookup}">
     <f:hetero-list name="envLookup" oneEach="true" 

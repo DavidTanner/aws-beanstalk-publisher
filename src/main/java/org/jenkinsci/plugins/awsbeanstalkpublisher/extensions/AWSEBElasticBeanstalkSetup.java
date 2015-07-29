@@ -225,14 +225,21 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             return FormValidation.ok(CollectionUtils.flattenToString(creds));
         }
 
-        public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {
+        public FormValidation doLoadApplications(
+                @QueryParameter("credentialsString") String credentialsString, 
+                @QueryParameter("credentialsText") String credentialsText, 
+                @QueryParameter("awsRegion") String awsRegion, 
+                @QueryParameter("awsRegionText") String awsRegionText) {
             AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
             if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
+                credentials = AWSEBCredentials.getCredentialsByString(credentialsText);
             }
-            Regions region = Enum.valueOf(Regions.class, regionString);
+            Regions region = Enum.valueOf(Regions.class, awsRegion);
             if (region == null) {
-                return FormValidation.error("Missing valid Region");
+                region = Enum.valueOf(Regions.class, awsRegionText);
+                if (region == null) {
+                    return FormValidation.error("Missing valid Region");
+                }
             }
 
             return FormValidation.ok(AWSEBUtils.getApplicationListAsString(credentials, region));

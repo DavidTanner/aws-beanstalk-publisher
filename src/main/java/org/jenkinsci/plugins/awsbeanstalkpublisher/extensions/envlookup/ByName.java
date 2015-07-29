@@ -63,15 +63,22 @@ public class ByName extends AWSEBSetup implements EnvLookup {
         }
         
 
-        public FormValidation doLoadEnvironments(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString,
+        public FormValidation doLoadEnvironments(
+                @QueryParameter("credentialsString") String credentialsString, 
+                @QueryParameter("credentialsText") String credentialsText, 
+                @QueryParameter("awsRegion") String awsRegion, 
+                @QueryParameter("awsRegionText") String awsRegionText,
                 @QueryParameter("applicationName") String appName) {
             AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
             if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
+                credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
             }
-            Regions region = Enum.valueOf(Regions.class, regionString);
+            Regions region = Enum.valueOf(Regions.class, awsRegion);
             if (region == null) {
-                return FormValidation.error("Missing valid Region");
+                region = Enum.valueOf(Regions.class, awsRegionText);
+                if (region == null) {
+                    return FormValidation.error("Missing valid Region");
+                }
             }
 
             if (appName == null) {
