@@ -52,7 +52,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public AWSEBElasticBeanstalkSetup(
             Regions awsRegion, 
             String awsRegionText, 
-            String credentials,
+            String credentialsString,
             String credentialsText,
             String applicationName, 
             String versionLabelFormat, 
@@ -62,7 +62,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         
         this.awsRegion = awsRegion;
         this.awsRegionText = awsRegionText;
-        this.credentialsString = credentials;
+        this.credentialsString = credentialsString;
         this.credentialsText = credentialsText;
         this.applicationName = applicationName;
 
