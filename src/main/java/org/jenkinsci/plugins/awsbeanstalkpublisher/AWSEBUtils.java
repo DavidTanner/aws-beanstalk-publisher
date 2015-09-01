@@ -49,9 +49,9 @@ public class AWSEBUtils {
     }
     
     public static AmazonS3 getS3(AWSEBCredentials credentials, Regions awsRegion) {
-        AWSCredentialsProvider credentialsProvider = null;
+        AWSCredentialsProvider provider = null;
         if (credentials != null) {
-            credentialsProvider = credentials.getAwsCredentials();
+            provider = credentials.getAwsCredentials();
         }
         Region region = Region.getRegion(awsRegion);
 
