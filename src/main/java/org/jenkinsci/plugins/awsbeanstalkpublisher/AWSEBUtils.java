@@ -49,7 +49,10 @@ public class AWSEBUtils {
     }
     
     public static AmazonS3 getS3(AWSEBCredentials credentials, Regions awsRegion) {
-        AWSCredentialsProvider provider = credentials.getAwsCredentials();
+        AWSCredentialsProvider provider = null;
+        if (credentials != null) {
+            provider = credentials.getAwsCredentials();
+        }
         Region region = Region.getRegion(awsRegion);
 
         AmazonS3 s3 = region.createClient(AmazonS3Client.class, provider, AWSEBUtils.getClientConfig());
