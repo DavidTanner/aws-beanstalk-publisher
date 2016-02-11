@@ -30,6 +30,8 @@ IAM credentials need to be able to read and upload to S3, and to read and config
 
 After adding the Access Key ID and Secret Key in to the Jenkins master configuration, click Advanced and choose a region to see what applications your credentials actually see.
 
+If Jenkins is itself running inside AWS (for example on an EC2 instance) you can instead leave the Access Key ID and Secret Key blank, and the IAM instance role of the jenkins server will be used for authentication.
+
 
 
 ####Screenshot:
