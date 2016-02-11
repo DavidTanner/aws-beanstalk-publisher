@@ -33,6 +33,7 @@ After adding the Access Key ID and Secret Key in to the Jenkins master configura
 The Access Key and Secret Key are optional.  Credentials can be placed in the master configuration, in a .aws config file, or as environment variables.
 
 If Jenkins is itself running inside AWS (for example on an EC2 instance) you can instead leave the Access Key ID and Secret Key blank, and the IAM instance role of the jenkins server will be used for authentication.
+
 More about AWS credentials can be found [here](http://docs.aws.amazon.com/AWSSdkDocsJava/latest/DeveloperGuide/credentials.html).
 
 
