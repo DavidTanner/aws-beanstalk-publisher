@@ -90,7 +90,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
-            <version>1.9.39</version>
+            <version>1.10.49</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>
@@ -100,7 +100,7 @@
         </dependency><dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-elasticbeanstalk</artifactId>
-            <version>1.9.39</version>
+            <version>1.10.49</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-codec</groupId>

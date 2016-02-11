@@ -7,7 +7,7 @@
   
   <f:validateButton
    title="${%Get Available Environments}" progress="${%Loading...}"
-   method="loadEnvironments" with="credentials,awsRegion,applicationName" />
+   method="loadEnvironments" with="credentialsString,credentialsText,awsRegion,awsRegionText,applicationName" />
   
 
 </j:jelly>

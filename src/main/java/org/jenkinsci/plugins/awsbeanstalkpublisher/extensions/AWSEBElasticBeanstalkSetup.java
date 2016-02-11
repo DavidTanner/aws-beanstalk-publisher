@@ -30,15 +30,18 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     @Extension
     public static final DescriptorImpl DESCRIPTOR = new DescriptorImpl();
 
-    private final AWSEBCredentials credentials;
-    private final String credentialsText;
-    private final Regions awsRegion;
-    private final String applicationName;
-    private final String versionLabelFormat;
-    private final Boolean failOnError;
+    
+    private String credentialsString;
+    private String credentialsText;
+    private Regions awsRegion;
+    private String applicationName;
+    private String versionLabelFormat;
+    private Boolean failOnError;
 
     @Deprecated
     private transient List<String> environments;
+    @Deprecated
+    private transient AWSEBCredentials credentials;
 
     private final String awsRegionText;
 
@@ -49,7 +52,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     public AWSEBElasticBeanstalkSetup(
             Regions awsRegion, 
             String awsRegionText, 
-            String credentials,
+            String credentialsString,
             String credentialsText,
             String applicationName, 
             String versionLabelFormat, 
@@ -59,7 +62,7 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         
         this.awsRegion = awsRegion;
         this.awsRegionText = awsRegionText;
-        this.credentials = AWSEBCredentials.getCredentialsByString(credentials);
+        this.credentialsString = credentialsString;
         this.credentialsText = credentialsText;
         this.applicationName = applicationName;
 
@@ -91,6 +94,10 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         if (environments != null && !environments.isEmpty()) {
             addEnvIfMissing(new ByName(StringUtils.join(environments, '\n')));
             environments = null;
+        }
+        if (credentials != null) {
+            credentialsString = credentials.toString();
+            credentials = null;
         }
         return this;
     }
@@ -136,8 +143,8 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
         return failOnError == null ? false : failOnError;
     }
 
-    public AWSEBCredentials getCredentials() {
-        return credentials;
+    public String getCredentialsString() {
+        return credentialsString;
     }
     
     public String getCredentialsText() {
@@ -145,18 +152,20 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
     }
     
     public AWSEBCredentials getActualcredentials(AbstractBuild<?, ?> build, BuildListener listener) {
+        AWSEBCredentials creds = null;
+                
         if (!StringUtils.isEmpty(credentialsText)) {
             String resolvedText = AWSEBUtils.replaceMacros(build, listener, credentialsText);
-            AWSEBCredentials creds = AWSEBCredentials.getCredentialsByString(resolvedText);
-            if (creds != null) {
-                return creds;
-            }
+            creds = AWSEBCredentials.getCredentialsByString(resolvedText);
+        } else if (!StringUtils.isEmpty(credentialsString)) {
+            creds = AWSEBCredentials.getCredentialsByString(credentialsString);
         }
         
-        if (credentials != null) {
-            throw new NullPointerException("No credentials provided for build!!!");
+        if (creds == null) {
+            listener.getLogger().println("No credentials provided for build!!!");
         }
-        return credentials;
+        
+        return creds;
     }
 
     @Override
@@ -184,8 +193,9 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             return "Elastic Beanstalk Application";
         }
 
-        public ListBoxModel doFillCredentialsItems(@QueryParameter String credentials) {
+        public ListBoxModel doFillCredentialsStringItems(@QueryParameter String credentials) {
             ListBoxModel items = new ListBoxModel();
+            items.add("");
             for (AWSEBCredentials creds : AWSEBCredentials.getCredentials()) {
 
                 items.add(creds, creds.toString());
@@ -215,14 +225,21 @@ public class AWSEBElasticBeanstalkSetup extends AWSEBSetup {
             return FormValidation.ok(CollectionUtils.flattenToString(creds));
         }
 
-        public FormValidation doLoadApplications(@QueryParameter("credentials") String credentialsString, @QueryParameter("awsRegion") String regionString) {
+        public FormValidation doLoadApplications(
+                @QueryParameter("credentialsString") String credentialsString, 
+                @QueryParameter("credentialsText") String credentialsText, 
+                @QueryParameter("awsRegion") String awsRegion, 
+                @QueryParameter("awsRegionText") String awsRegionText) {
             AWSEBCredentials credentials = AWSEBCredentials.getCredentialsByString(credentialsString);
             if (credentials == null) {
-                return FormValidation.error("Missing valid credentials");
+                credentials = AWSEBCredentials.getCredentialsByString(credentialsText);
             }
-            Regions region = Enum.valueOf(Regions.class, regionString);
+            Regions region = Enum.valueOf(Regions.class, awsRegion);
             if (region == null) {
-                return FormValidation.error("Missing valid Region");
+                region = Enum.valueOf(Regions.class, awsRegionText);
+                if (region == null) {
+                    return FormValidation.error("Missing valid Region");
+                }
             }
 
             return FormValidation.ok(AWSEBUtils.getApplicationListAsString(credentials, region));
