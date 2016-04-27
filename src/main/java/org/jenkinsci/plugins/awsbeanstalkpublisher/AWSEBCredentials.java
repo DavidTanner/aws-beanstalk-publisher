@@ -30,8 +30,6 @@ public class AWSEBCredentials extends AbstractDescribableImpl<AWSEBCredentials> 
     private final String awsAccessKeyId;
     private final String awsSecretSharedKey;
 
-    private final static Set<AWSEBCredentials> credentials = new HashSet<AWSEBCredentials>();
-
     public String getName() {
         return name;
     }
@@ -65,26 +63,7 @@ public class AWSEBCredentials extends AbstractDescribableImpl<AWSEBCredentials> 
         return credentials;
     }
 
-    public static void configureCredentials(Collection<AWSEBCredentials> toAdd) {
-        credentials.clear();
-        credentials.addAll(toAdd);
-    }
 
-    public static Set<AWSEBCredentials> getCredentials() {
-        return credentials;
-    }
-
-    public static AWSEBCredentials getCredentialsByString(String credentialsString) {
-        Set<AWSEBCredentials> credentials = getCredentials();
-
-        for (AWSEBCredentials credential : credentials) {
-            if (credential.toString().equals(credentialsString)) {
-                return credential;
-            }
-        }
-
-        return null;
-    }
 
     @Override
     public boolean equals(Object o) {

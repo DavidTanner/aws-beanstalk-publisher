@@ -1,8 +1,12 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import hudson.Extension;
 import hudson.Launcher;
@@ -19,23 +23,26 @@ import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.BuildStepMonitor;
 import hudson.tasks.Publisher;
 import hudson.util.DescribableList;
-import hudson.util.FormValidation;
 import net.sf.json.JSONObject;
 
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBElasticBeanstalkSetup;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetup;
 import org.jenkinsci.plugins.awsbeanstalkpublisher.extensions.AWSEBSetupDescriptor;
 import org.kohsuke.stapler.DataBoundConstructor;
-import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
-import com.amazonaws.regions.Regions;
-import com.amazonaws.services.elasticbeanstalk.model.ApplicationDescription;
+import com.cloudbees.jenkins.plugins.awscredentials.AWSCredentialsImpl;
+import com.cloudbees.plugins.credentials.CredentialsScope;
+import com.cloudbees.plugins.credentials.CredentialsStore;
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+import com.cloudbees.plugins.credentials.domains.Domain;
+import com.cloudbees.plugins.credentials.domains.DomainSpecification;
 
 /**
  * AWS Elastic Beanstalk Deployment
  */
 public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
+    private static final Logger logger = Logger.getLogger(AWSEBPublisher.class.getName());
     
     @Initializer(before=InitMilestone.PLUGINS_STARTED)
     public static void addAlias() {
@@ -95,7 +102,7 @@ public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
     // This indicates to Jenkins that this is an implementation of an extension point.
     public static final class DescriptorImpl extends BuildStepDescriptor<Publisher> {
 
-        private Set<AWSEBCredentials> credentials;
+        private transient Set<AWSEBCredentials> credentials;
 
         @SuppressWarnings("rawtypes")
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
@@ -120,25 +127,46 @@ public class AWSEBPublisher extends AWSEBPublisherBackwardsCompatibility {
         public DescriptorImpl() {
             load();
             if (credentials != null) {
-                AWSEBCredentials.configureCredentials(credentials);
-            } else if (AWSEBCredentials.getCredentials() != null) {
-                credentials = AWSEBCredentials.getCredentials();
+                CredentialsStore provider = new SystemCredentialsProvider.StoreImpl();
+                List<DomainSpecification> specifications = new ArrayList<DomainSpecification>(1);
+                Domain domain = new Domain("aws.amazon.com", "Auto generated credentials domain", specifications);
+                
+                for (AWSEBCredentials creds : credentials) {
+                    AWSCredentialsImpl newCreds = new AWSCredentialsImpl(
+                                                                         CredentialsScope.GLOBAL, 
+                                                                         UUID.randomUUID().toString(),
+                                                                         creds.getAwsAccessKeyId(),
+                                                                         creds.getAwsSecretSharedKey(),
+                                                                         "Transfer from AWSEBCredentials");
+                    try {
+                        provider.addCredentials(domain, newCreds);
+                    } catch (IOException e) {
+                        logger.log(Level.SEVERE, "Unable to transfer credentials", e);
+                    }
+                }
+                credentials = null;
             }
+
+            saveAfterPause();
         }
+        
+        private void saveAfterPause() {
+            new java.util.Timer().schedule( 
+                                           new java.util.TimerTask() {
+                                               @Override
+                                               public void run() {
+                                                   save();
+                                               }
+                                           }, 
+                                           5000 
+                                   );
+        }
+
 
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
-            
-            AWSEBCredentials.configureCredentials(req.bindJSONToList(AWSEBCredentials.class, json.get("credentials")));
-            credentials = AWSEBCredentials.getCredentials();
-            save();
             return super.configure(req, json);
         }
-        
-        public Set<AWSEBCredentials> getCredentials() {
-            return credentials;
-        }
-        
     }
 
 }
