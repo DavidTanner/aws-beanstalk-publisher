@@ -1,8 +1,9 @@
 package org.jenkinsci.plugins.awsbeanstalkpublisher;
 
+import hudson.ProxyConfiguration;
 import hudson.Util;
-import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +28,7 @@ import com.amazonaws.services.elasticbeanstalk.model.DescribeEnvironmentsResult;
 import com.amazonaws.services.elasticbeanstalk.model.EnvironmentDescription;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import jenkins.model.Jenkins;
 
 public class AWSEBUtils {
 
@@ -139,13 +141,21 @@ public class AWSEBUtils {
         AWSElasticBeanstalk awseb = region.createClient(AWSElasticBeanstalkClient.class, credentials, getClientConfig());
         return awseb;
     }
-    
+
     public static ClientConfiguration getClientConfig() {
         ClientConfiguration clientConfig = new ClientConfiguration();
         clientConfig.setUserAgent(ClientConfiguration.DEFAULT_USER_AGENT);
+
+        ProxyConfiguration proxy = Jenkins.getInstance().proxy;
+        if (StringUtils.isNotBlank(proxy.name)) {
+            clientConfig.setProxyHost(proxy.name);
+            clientConfig.setProxyPort(proxy.port);
+            clientConfig.setProxyUsername(proxy.getUserName());
+            clientConfig.setProxyPassword(proxy.getPassword());
+        }
         return clientConfig;
     }
-    
+
 
     public static void log(BuildListener listener, String mask, Object... args) {
         listener.getLogger().println(String.format(mask, args));
